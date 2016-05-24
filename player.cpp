@@ -1,3 +1,4 @@
+#include <iostream>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -7,6 +8,11 @@
 #include <string>
 #include <boost/regex.hpp>
 #include "err.h"
+
+// ./player stream3.polskieradio.pl / 8900 - 10000 no
+// echo -n "hello" > /dev/udp/localhost/10000
+
+using namespace std;
 
 const int QUEUE_LENGTH = 5;
 
@@ -64,18 +70,7 @@ int initialize_message_socket(const char *m_port) {
     controller.sin_port = htons((uint16_t) m_port_int);
     rc = bind(m_sock, (struct sockaddr *) &controller, (socklen_t) sizeof(controller));
     if (rc < 0) {
-        syserr("Binding stream socket");
-    }
-
-//    socklen_t len = sizeof(controller);
-//    rc = getsockname(m_sock, (struct sockaddr *) &controller, &len);
-//    if (rc < 0) {
-//        syserr("Getting socket name");
-//    }
-
-    rc = listen(m_sock, QUEUE_LENGTH);
-    if (rc < 0) {
-        syserr("Starting to listen");
+        syserr("bind");
     }
 
     return m_sock;
@@ -100,7 +95,7 @@ int main(int argc, char *argv[]) {
 
 
 
-//    string get = "";
+//    std::string get = "";
 //    get += "GET / HTTP/1.0\r\n";
 //    //get += "Host: 66.220.31.135\r\n";
 //    get += "Host: stream3.polskieradio.pl\r\n";
@@ -114,11 +109,17 @@ int main(int argc, char *argv[]) {
 //
 //    write(r_sock, get.c_str(), get.size());
 //
-//    char buffer[100000];
+    char buffer[100000];
 //
 //    int len = 0;
 //    for (/*int num = 0; num < 1000; num += len*/;;) {
 //        len = read(r_sock, buffer, 100000);
 //        write(1, buffer, len);
+//    }
+
+
+//    for(;;) {
+//        int read = recv(m_sock, buffer, sizeof(buffer), 0);
+//        write(1, buffer, read);
 //    }
 }
