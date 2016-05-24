@@ -3,6 +3,8 @@
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
       <sourceFolder url="file://$MODULE_DIR$/CMakeLists.txt" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/err.c" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/err.h" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/player.cpp" isTestSource="false" />
     </content>
     <orderEntry type="inheritedJdk" />
