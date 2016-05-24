@@ -5,7 +5,7 @@
 #include <poll.h>
 #include <unistd.h>
 #include <string>
-#include <boost/regex>
+#include <boost/regex.hpp>
 #include "err.h"
 
 const int QUEUE_LENGTH = 5;
@@ -77,6 +77,8 @@ int initialize_message_socket(const char *m_port) {
     if (rc < 0) {
         syserr("Starting to listen");
     }
+
+    return m_sock;
 }
 
 int main(int argc, char *argv[]) {

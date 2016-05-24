@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="BookmarkManager">
+    <bookmark url="file://$PROJECT_DIR$/player.cpp" line="7" />
+  </component>
   <component name="CMakeRunConfigurationManager" shouldGenerate="true" assignedExecutableTargets="true" buildAllGenerated="true">
     <generated>
       <config projectName="player" targetName="player" />
@@ -44,8 +47,8 @@
       <file leaf-file-name="player.cpp" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/player.cpp">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.82122904">
-              <caret line="120" column="7" selection-start-line="120" selection-start-column="7" selection-end-line="120" selection-end-column="7" />
+            <state vertical-scroll-proportion="1.7877095">
+              <caret line="80" column="18" selection-start-line="80" selection-start-column="18" selection-end-line="80" selection-end-column="18" />
               <folding>
                 <element signature="e#0#17#0" expanded="true" />
               </folding>
@@ -210,8 +213,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/player.cpp">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.82122904">
-          <caret line="120" column="7" selection-start-line="120" selection-start-column="7" selection-end-line="120" selection-end-column="7" />
+        <state vertical-scroll-proportion="1.7877095">
+          <caret line="80" column="18" selection-start-line="80" selection-start-column="18" selection-end-line="80" selection-end-column="18" />
           <folding>
             <element signature="e#0#17#0" expanded="true" />
           </folding>
