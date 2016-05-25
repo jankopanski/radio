@@ -21,15 +21,17 @@ const int TIME = 5000;
 
 class Radio {
 public:
-    Radio(int r_sock, int metaint, string &rest) : sock(r_sock), audiolen(metaint) { // TODO rest
+    Radio(int r_sock, int metaint) : sock(r_sock), audiolen(metaint) {
         audiobuffer = (char *) malloc((size_t) audiolen);
         if (audiobuffer == NULL) {
             syserr("malloc");
         }
     }
+
     ~Radio() {
         free(audiobuffer);
     }
+
 private:
     const int sock;
     const int audiolen;
@@ -119,7 +121,9 @@ void send_get_request(const int sock, const char *host, const char *path, const 
     else if (md == "yes") mdi = 1;
     else fatal("md argument");
     char buffer[HEADER_MAN_LENGTH];
-    int buflen = snprintf(buffer, HEADER_MAN_LENGTH - 1, "GET %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: MPlayer 2.0-728-g2c378c7-4build1\r\nIcy-MetaData:%d\r\n\r\n", path, host, mdi);
+    int buflen = snprintf(buffer, HEADER_MAN_LENGTH - 1,
+                          "GET %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: MPlayer 2.0-728-g2c378c7-4build1\r\nIcy-MetaData:%d\r\n\r\n",
+                          path, host, mdi);
     if (buflen < 0) {
         syserr("snprintf");
     }
@@ -129,35 +133,61 @@ void send_get_request(const int sock, const char *host, const char *path, const 
     }
 }
 
-void receive_get_request(const int sock, int &metaint, string &rest) {
-    const int CHUNK_SIZE = 1024;
-    int bufread = 0;
+int receive_get_request(const int sock) {
+    int rc, state = 0, len = 0;
     char buffer[HEADER_MAN_LENGTH];
-    memset(buffer, 0, HEADER_MAN_LENGTH);
-    boost::regex end(".*\r\n\r\n.*"); // TODO boost wyjątki
-    do {
-        if (bufread + CHUNK_SIZE > HEADER_MAN_LENGTH) {
-            fatal("HEADER_MAN_LENGTH exceeded");
-        }
-        ssize_t len = read(sock, buffer + bufread, CHUNK_SIZE);
-        if (len < 0) {
+    while (state < 4) {
+        rc = read(sock, buffer + len, 1);
+        if (rc < 0) {
             syserr("read");
         }
-        // TODO len == 0
-        bufread += len;
-    } while (boost::regex_match(buffer, end));
-    boost::regex header("ICY.*(\\d{3}).*\r\n.*icy-metaint:(\\d+)\r\n.*\r\n\r\n(.*)");
+        if ((buffer[len] == '\r' && (state == 0 || state == 2)) ||
+            (buffer[len] == '\n' && (state == 1 || state == 3)))
+            ++state;
+        else state = 0;
+        ++len;
+    }
+    boost::regex header("ICY.*(\\d{3}).*\r\n.*icy-metaint:(\\d+)\r\n.*\r\n\r\n.*");
     boost::smatch token;
     if (!boost::regex_match(buffer, token, header)) {
         fatal("Invalid get response %s", header);
     }
     int status = atoi(token[1]);
     if (!(status == 200 || status == 302 || status == 304)) {
-        fatal("status %d", status);
+        fatal("get response status %d", status);
     }
-    metaint = atoi(token[2]);
-    rest = string(token[3]);
+    return atoi(token[2]);
 }
+
+//void receive_get_request(const int sock, int &metaint, string &rest) {
+//    const int CHUNK_SIZE = 1024;
+//    int bufread = 0;
+//    char buffer[HEADER_MAN_LENGTH];
+//    memset(buffer, 0, HEADER_MAN_LENGTH);
+//    boost::regex end(".*\r\n\r\n.*"); // TODO boost wyjątki
+//    do {
+//        if (bufread + CHUNK_SIZE > HEADER_MAN_LENGTH) {
+//            fatal("HEADER_MAN_LENGTH exceeded");
+//        }
+//        ssize_t len = read(sock, buffer + bufread, CHUNK_SIZE);
+//        if (len < 0) {
+//            syserr("read");
+//        }
+//        // TODO len == 0
+//        bufread += len;
+//    } while (boost::regex_match(buffer, end));
+//    boost::regex header("ICY.*(\\d{3}).*\r\n.*icy-metaint:(\\d+)\r\n.*\r\n\r\n(.*)");
+//    boost::smatch token;
+//    if (!boost::regex_match(buffer, token, header)) {
+//        fatal("Invalid get response %s", header);
+//    }
+//    int status = atoi(token[1]);
+//    if (!(status == 200 || status == 302 || status == 304)) {
+//        fatal("status %d", status);
+//    }
+//    metaint = atoi(token[2]);
+//    rest = string(token[3]);
+//}
 
 int main(int argc, char *argv[]) {
     if (argc != 7) {
@@ -181,16 +211,16 @@ int main(int argc, char *argv[]) {
 
     send_get_request(r_sock, host, path, md);
 
-    int metaint;
-    string rest;
-    receive_get_request(r_sock, metaint, rest); // TODO string reszta, metaint
+    int metaint = receive_get_request(r_sock);
+
+    Radio radio = Radio(r_sock, metaint);
 
     struct pollfd polls[2];
     polls[0].fd = r_sock;
     polls[1].fd = m_sock;
     polls[0].events = polls[1].events = POLLIN;
 
-    for (;;) {
+    for (; ;) {
         polls[0].revents = polls[1].revents = 0;
         if (poll(polls, 2, TIME) < 0) {
             syserr("poll");
