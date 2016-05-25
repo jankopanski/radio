@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="BookmarkManager">
-    <bookmark url="file://$PROJECT_DIR$/player.cpp" line="328" />
+    <bookmark url="file://$PROJECT_DIR$/player.cpp" line="335" />
   </component>
   <component name="CMakeRunConfigurationManager" shouldGenerate="true" assignedExecutableTargets="true" buildAllGenerated="true">
     <generated>
@@ -15,6 +15,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="2b8e12dc-2425-418c-9c0c-676ff407d5d0" name="Default" comment="">
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/player.cpp" afterPath="$PROJECT_DIR$/player.cpp" />
     </list>
     <ignored path="player.iws" />
@@ -51,8 +52,8 @@
           <file leaf-file-name="player.cpp" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/player.cpp">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="0.849162">
-                  <caret line="72" column="34" selection-start-line="72" selection-start-column="34" selection-end-line="72" selection-end-column="34" />
+                <state vertical-scroll-proportion="0.37765363">
+                  <caret line="103" column="24" selection-start-line="103" selection-start-column="24" selection-end-line="103" selection-end-column="24" />
                   <folding>
                     <element signature="e#0#19#0" expanded="true" />
                   </folding>
@@ -67,8 +68,8 @@
           <file leaf-file-name="player.cpp" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/player.cpp">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="0.19888268">
-                  <caret line="283" column="37" selection-start-line="283" selection-start-column="37" selection-end-line="283" selection-end-column="37" />
+                <state vertical-scroll-proportion="0.06480447">
+                  <caret line="290" column="37" selection-start-line="290" selection-start-column="37" selection-end-line="290" selection-end-column="37" />
                   <folding>
                     <element signature="e#0#19#0" expanded="true" />
                   </folding>
@@ -217,7 +218,7 @@
       <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="true" content_ui="tabs" />
       <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32972974" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
-      <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
+      <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.118608326" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="true" content_ui="tabs" />
       <window_info id="Cvs" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
@@ -266,8 +267,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/player.cpp">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.849162">
-          <caret line="72" column="34" selection-start-line="72" selection-start-column="34" selection-end-line="72" selection-end-column="34" />
+        <state vertical-scroll-proportion="0.37765363">
+          <caret line="103" column="24" selection-start-line="103" selection-start-column="24" selection-end-line="103" selection-end-column="24" />
           <folding>
             <element signature="e#0#19#0" expanded="true" />
           </folding>

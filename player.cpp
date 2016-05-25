@@ -16,6 +16,13 @@ const int QUEUE_LENGTH = 5;
 const int HEADER_MAN_LENGTH = 100000;
 const int TIME = 5000;
 
+void quit(int fd) {
+    if (fd > 2) {
+        close(fd);
+    }
+    exit(0);
+}
+
 class Radio {
 public:
     Radio(int r_sock, int outfd, int metaint, bool metadata) : in(r_sock), out(outfd), audiolen(metaint), metadata(metadata) {
