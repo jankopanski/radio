@@ -18,8 +18,8 @@ const int TIME = 5000;
 
 class Radio {
 public:
-    Radio(int r_sock, int metaint) : sock(r_sock), audiolen(metaint) {
-        audiobuffer = (char *) malloc((size_t) audiolen);
+    Radio(int r_sock, int outfd, int metaint, bool metadata) : in(r_sock), out(outfd), audiolen(metaint), metadata(metadata) {
+        buffer = (char *) malloc(max((size_t) audiolen, 4080));
         if (audiobuffer == NULL) {
             syserr("malloc");
         }
@@ -27,6 +27,19 @@ public:
 
     ~Radio() {
         free(audiobuffer);
+    }
+
+    void process() {
+        switch (state) {
+            case audio:
+                break;
+            case byte:
+                break;
+            case meta:
+                break;
+            default:
+                fatal("radio process");
+        }
     }
 
     void pause() {
@@ -43,8 +56,13 @@ public:
     }
 
 private:
+    enum State {audio, byte, meta};
+
+    State state = audio;
     bool active = true;
-    const int sock;
+    const bool metadata;
+    const int in;
+    const int out;
     const int audiolen;
     int metalen;
     int audioread;
@@ -127,15 +145,11 @@ int initialize_output_file_descriptor(const char *file) {
     return fd;
 }
 
-void send_get_request(const int sock, const char *host, const char *path, const char *md) {
-    int mdi;
-    if (md == "no") mdi = 0;
-    else if (md == "yes") mdi = 1;
-    else fatal("md argument");
+void send_get_request(const int sock, const char *host, const char *path, const bool metadata) {
     char buffer[HEADER_MAN_LENGTH];
     int buflen = snprintf(buffer, HEADER_MAN_LENGTH - 1,
                           "GET %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: MPlayer 2.0-728-g2c378c7-4build1\r\nIcy-MetaData:%d\r\n\r\n",
-                          path, host, mdi);
+                          path, host, (int) metadata);
     if (buflen < 0) {
         syserr("snprintf");
     }
@@ -213,6 +227,12 @@ int main(int argc, char *argv[]) {
     const char *m_port = argv[5];
     const char *md = argv[6];
 
+    bool metadata;
+    if (md == "no") metadata = false;
+    else if (md == "yes") metadata = true;
+    else fatal("md argument");
+
+
     int r_sock, m_sock, outfd;
 
     r_sock = initialize_radio_socket(host, r_port);
@@ -221,11 +241,11 @@ int main(int argc, char *argv[]) {
 
     outfd = initialize_output_file_descriptor(file);
 
-    send_get_request(r_sock, host, path, md);
+    send_get_request(r_sock, host, path, metadata);
 
     int metaint = receive_get_request(r_sock);
 
-    Radio radio = Radio(r_sock, metaint);
+    Radio radio = Radio(r_sock, metaint, metadata);
 
     struct pollfd polls[2];
     polls[0].fd = r_sock;
