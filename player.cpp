@@ -1,11 +1,8 @@
 #include <iostream>
-#include <cstdio>
-#include <cstdlib>
 #include <cstring>
 #include <netdb.h>
 #include <poll.h>
 #include <unistd.h>
-#include <string>
 #include <fcntl.h>
 #include <boost/regex.hpp>
 #include "err.h"
@@ -32,7 +29,21 @@ public:
         free(audiobuffer);
     }
 
+    void pause() {
+        active = false;
+    }
+
+    void play() {
+        active = true;
+    }
+
+    std::string title() {
+        // TODO zera wewnątrz tytułu, dodać długość tytułu
+        return std::string(title_);
+    }
+
 private:
+    bool active = true;
     const int sock;
     const int audiolen;
     int metalen;
@@ -41,6 +52,7 @@ private:
     char metalenbyte;
     char *audiobuffer;
     char metabuffer[4080];
+    char title_[1000];
 
 };
 
@@ -147,7 +159,7 @@ int receive_get_request(const int sock) {
         else state = 0;
         ++len;
     }
-    boost::regex header("ICY.*(\\d{3}).*\r\n.*icy-metaint:(\\d+)\r\n.*\r\n\r\n.*");
+    boost::regex header("ICY.*(\\d{3}).*\r\n.*icy-metaint:(\\d+)\r\n.*");
     boost::smatch token;
     if (!boost::regex_match(buffer, token, header)) {
         fatal("Invalid get response %s", header);
