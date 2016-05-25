@@ -17,6 +17,7 @@ using namespace std;
 
 const int QUEUE_LENGTH = 5;
 const int HEADER_MAN_LENGTH = 100000;
+const int TIME = 5000;
 
 int initialize_radio_socket(const char *host, const char *r_port) {
     int r_sock, rc;
@@ -124,6 +125,24 @@ int main(int argc, char *argv[]) {
     outfd = initialize_output_file_descriptor(file);
     send_get_request(r_sock, host, path, md);
     receive_get_request(); // TODO string reszta, metaint
+
+    struct pollfd polls[2];
+    polls[0].fd = r_sock;
+    polls[1].fd = m_sock;
+    polls[0].events = polls[1].events = POLLIN;
+
+    for (;;) {
+        polls[0].revents = polls[1].revents = 0;
+        if (poll(polls, 2, TIME) < 0) {
+            syserr("poll");
+        }
+        if (polls[0].revents == POLLIN) {
+
+        }
+        if (polls[1].revents == POLLIN) {
+
+        }
+    }
 
 
 //    std::string get = "";
