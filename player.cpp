@@ -19,23 +19,59 @@ const int TIME = 5000;
 class Radio {
 public:
     Radio(int r_sock, int outfd, int metaint, bool metadata) : in(r_sock), out(outfd), audiolen(metaint), metadata(metadata) {
-        buffer = (char *) malloc(max((size_t) audiolen, 4080));
-        if (audiobuffer == NULL) {
+        buffer = (char *) malloc(max((size_t) audiolen, 4080) + 1);
+        if (buffer == NULL) {
             syserr("malloc");
         }
     }
 
     ~Radio() {
-        free(audiobuffer);
+        free(buffer);
     }
 
     void process() {
         switch (state) {
             case audio:
+                readlen = read(in, buffer, (size_t) (audiolen - audioread));
+                if (readlen < 0) {
+                    syserr("read");
+                }
+                // TODO if len == 0
+                if (active) {
+                    writelen = write(out, buffer, (size_t) readlen);
+                    if (writelen < 0) {
+                        syserr("write");
+                    }
+                }
+                audioread += readlen;
+                if (audioread == audiolen) {
+                    audioread = 0;
+                    if (metadata) state = byte;
+                }
                 break;
             case byte:
+                readlen = read(in, buffer, 1);
+                if (readlen < 0) {
+                    syserr("read");
+                }
+                //else if (readlen == 0) quit(); TODO else if
+                metalen = static_cast<int>(buffer[0]);
+                state = meta;
                 break;
             case meta:
+                readlen = read(in, buffer + metaread, (size_t) (metalen - metaread));
+                if (readlen < 0) {
+                    syserr("read");
+                }
+                // TODO 0
+                if (metaread == metalen) {
+                    buffer[metalen] = 0;
+                    boost::smatch token;
+                    boost::regex_match(buffer, token, title_regex);
+                    title_ = token[1];
+                    metaread = 0;
+                    state = audio;
+                }
                 break;
             default:
                 fatal("radio process");
@@ -52,7 +88,7 @@ public:
 
     std::string title() {
         // TODO zera wewnątrz tytułu, dodać długość tytułu
-        return std::string(title_);
+        return title_;
     }
 
 private:
@@ -64,14 +100,14 @@ private:
     const int in;
     const int out;
     const int audiolen;
-    int metalen;
-    int audioread;
-    int metaread;
-    char metalenbyte;
-    char *audiobuffer;
-    char metabuffer[4080];
-    char title_[1000];
-
+    int metalen = 0;
+    int audioread = 0;
+    int metaread = 0;
+    ssize_t readlen;
+    ssize_t writelen;
+    char *buffer;
+    std::string title_;
+    const boost::regex title_regex{"StreamTitle='(.*)'"};
 };
 
 int initialize_radio_socket(const char *host, const char *r_port) {
@@ -245,7 +281,7 @@ int main(int argc, char *argv[]) {
 
     int metaint = receive_get_request(r_sock);
 
-    Radio radio = Radio(r_sock, metaint, metadata);
+    Radio radio = Radio(r_sock, outfd, metaint, metadata);
 
     struct pollfd polls[2];
     polls[0].fd = r_sock;

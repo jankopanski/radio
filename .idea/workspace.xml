@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="BookmarkManager">
-    <bookmark url="file://$PROJECT_DIR$/player.cpp" line="292" />
+    <bookmark url="file://$PROJECT_DIR$/player.cpp" line="328" />
   </component>
   <component name="CMakeRunConfigurationManager" shouldGenerate="true" assignedExecutableTargets="true" buildAllGenerated="true">
     <generated>
@@ -51,8 +51,8 @@
           <file leaf-file-name="player.cpp" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/player.cpp">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="0.11173184">
-                  <caret line="21" column="8" selection-start-line="21" selection-start-column="8" selection-end-line="21" selection-end-column="8" />
+                <state vertical-scroll-proportion="0.849162">
+                  <caret line="72" column="34" selection-start-line="72" selection-start-column="34" selection-end-line="72" selection-end-column="34" />
                   <folding>
                     <element signature="e#0#19#0" expanded="true" />
                   </folding>
@@ -67,8 +67,8 @@
           <file leaf-file-name="player.cpp" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/player.cpp">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="-0.13631284">
-                  <caret line="232" column="30" selection-start-line="232" selection-start-column="30" selection-end-line="232" selection-end-column="30" />
+                <state vertical-scroll-proportion="0.19888268">
+                  <caret line="283" column="37" selection-start-line="283" selection-start-column="37" selection-end-line="283" selection-end-column="37" />
                   <folding>
                     <element signature="e#0#19#0" expanded="true" />
                   </folding>
@@ -266,8 +266,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/player.cpp">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.11173184">
-          <caret line="21" column="8" selection-start-line="21" selection-start-column="8" selection-end-line="21" selection-end-column="8" />
+        <state vertical-scroll-proportion="0.849162">
+          <caret line="72" column="34" selection-start-line="72" selection-start-column="34" selection-end-line="72" selection-end-column="34" />
           <folding>
             <element signature="e#0#19#0" expanded="true" />
           </folding>
