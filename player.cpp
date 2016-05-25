@@ -18,7 +18,9 @@ const int TIME = 5000;
 
 void quit(int fd) {
     if (fd > 2) {
-        close(fd);
+        if (close(fd) < 0) {
+            syserr("close");
+        }
     }
     exit(0);
 }
@@ -26,7 +28,7 @@ void quit(int fd) {
 class Radio {
 public:
     Radio(int r_sock, int outfd, int metaint, bool metadata) : in(r_sock), out(outfd), audiolen(metaint), metadata(metadata) {
-        buffer = (char *) malloc(max((size_t) audiolen, 4080) + 1);
+        buffer = (char *) malloc((size_t) (max(audiolen, 4080) + 1));
         if (buffer == NULL) {
             syserr("malloc");
         }
@@ -73,9 +75,9 @@ public:
                 // TODO 0
                 if (metaread == metalen) {
                     buffer[metalen] = 0;
-                    boost::smatch token;
-                    boost::regex_match(buffer, token, title_regex);
-                    title_ = token[1];
+                    boost::cmatch what;
+                    boost::regex_search(buffer, what, title_regex);
+                    title_ = what[1];
                     metaread = 0;
                     state = audio;
                 }
@@ -103,10 +105,10 @@ private:
 
     State state = audio;
     bool active = true;
-    const bool metadata;
     const int in;
     const int out;
     const int audiolen;
+    const bool metadata;
     int metalen = 0;
     int audioread = 0;
     int metaread = 0;
@@ -179,7 +181,7 @@ int initialize_message_socket(const char *m_port) {
 
 int initialize_output_file_descriptor(const char *file) {
     int fd = 1;
-    if (file == "-") {
+    if (strcmp(file, "-") != 0) {
         fd = open(file, O_WRONLY | O_CREAT);
         if (fd < 0) {
             syserr("open");

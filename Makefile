@@ -1,6 +1,6 @@
 CC = g++
 CFLAGS = -Wall -O2
-CXXFLAGS = -Wall -O2
+CXXFLAGS = -Wall -std=c++11 -O2
 LFLAGS = -Wall
 TARGETS = player
 
