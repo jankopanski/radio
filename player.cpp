@@ -6,8 +6,8 @@
 #include <poll.h>
 #include <unistd.h>
 #include <string>
-#include <boost/regex.hpp>
 #include <fcntl.h>
+#include <boost/regex.hpp>
 #include "err.h"
 
 // ./player stream3.polskieradio.pl / 8900 - 10000 no
@@ -18,6 +18,29 @@ using namespace std;
 const int QUEUE_LENGTH = 5;
 const int HEADER_MAN_LENGTH = 100000;
 const int TIME = 5000;
+
+class Radio {
+public:
+    Radio(int r_sock, int metaint, string &rest) : sock(r_sock), audiolen(metaint) { // TODO rest
+        audiobuffer = (char *) malloc((size_t) audiolen);
+        if (audiobuffer == NULL) {
+            syserr("malloc");
+        }
+    }
+    ~Radio() {
+        free(audiobuffer);
+    }
+private:
+    const int sock;
+    const int audiolen;
+    int metalen;
+    int audioread;
+    int metaread;
+    char metalenbyte;
+    char *audiobuffer;
+    char metabuffer[4080];
+
+};
 
 int initialize_radio_socket(const char *host, const char *r_port) {
     int r_sock, rc;
@@ -106,6 +129,36 @@ void send_get_request(const int sock, const char *host, const char *path, const 
     }
 }
 
+void receive_get_request(const int sock, int &metaint, string &rest) {
+    const int CHUNK_SIZE = 1024;
+    int bufread = 0;
+    char buffer[HEADER_MAN_LENGTH];
+    memset(buffer, 0, HEADER_MAN_LENGTH);
+    boost::regex end(".*\r\n\r\n.*"); // TODO boost wyjątki
+    do {
+        if (bufread + CHUNK_SIZE > HEADER_MAN_LENGTH) {
+            fatal("HEADER_MAN_LENGTH exceeded");
+        }
+        ssize_t len = read(sock, buffer + bufread, CHUNK_SIZE);
+        if (len < 0) {
+            syserr("read");
+        }
+        // TODO len == 0
+        bufread += len;
+    } while (boost::regex_match(buffer, end));
+    boost::regex header("ICY.*(\\d{3}).*\r\n.*icy-metaint:(\\d+)\r\n.*\r\n\r\n(.*)");
+    boost::smatch token;
+    if (!boost::regex_match(buffer, token, header)) {
+        fatal("Invalid get response %s", header);
+    }
+    int status = atoi(token[1]);
+    if (!(status == 200 || status == 302 || status == 304)) {
+        fatal("status %d", status);
+    }
+    metaint = atoi(token[2]);
+    rest = string(token[3]);
+}
+
 int main(int argc, char *argv[]) {
     if (argc != 7) {
         fatal("Usage: %s host path r-port file m-port md", argv[0]);
@@ -121,10 +174,16 @@ int main(int argc, char *argv[]) {
     int r_sock, m_sock, outfd;
 
     r_sock = initialize_radio_socket(host, r_port);
+
     m_sock = initialize_message_socket(m_port);
+
     outfd = initialize_output_file_descriptor(file);
+
     send_get_request(r_sock, host, path, md);
-    receive_get_request(); // TODO string reszta, metaint
+
+    int metaint;
+    string rest;
+    receive_get_request(r_sock, metaint, rest); // TODO string reszta, metaint
 
     struct pollfd polls[2];
     polls[0].fd = r_sock;
