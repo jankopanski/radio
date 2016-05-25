@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <boost/regex.hpp>
+#include <boost/lexical_cast.hpp>
 #include "err.h"
 
 // ./player stream3.polskieradio.pl / 8900 - 10000 no
@@ -182,7 +183,7 @@ int initialize_message_socket(const char *m_port) {
 int initialize_output_file_descriptor(const char *file) {
     int fd = 1;
     if (strcmp(file, "-") != 0) {
-        fd = open(file, O_WRONLY | O_CREAT);
+        fd = open(file, O_WRONLY | O_CREAT, S_IRWXU);
         if (fd < 0) {
             syserr("open");
         }
@@ -219,15 +220,15 @@ int receive_get_request(const int sock) {
         ++len;
     }
     boost::regex header("ICY.*(\\d{3}).*\r\n.*icy-metaint:(\\d+)\r\n.*");
-    boost::smatch token;
-    if (!boost::regex_match(buffer, token, header)) {
-        fatal("Invalid get response %s", header);
+    boost::cmatch match;
+    if (!boost::regex_match(buffer, match, header)) {
+        fatal("get response %s", buffer);
     }
-    int status = atoi(token[1]);
+    int status = boost::lexical_cast<int>(match[1]);//atoi(static_cast<const char *>(what[1]));
     if (!(status == 200 || status == 302 || status == 304)) {
         fatal("get response status %d", status);
     }
-    return atoi(token[2]);
+    return boost::lexical_cast<int>(match[2]);//atoi(static_cast<const char *>(what[2]));
 }
 
 //void receive_get_request(const int sock, int &metaint, string &rest) {
@@ -272,10 +273,9 @@ int main(int argc, char *argv[]) {
     const char *m_port = argv[5];
     const char *md = argv[6];
 
-    bool metadata;
-    if (md == "no") metadata = false;
-    else if (md == "yes") metadata = true;
-    else fatal("md argument");
+    bool metadata = false;
+    if (strcmp(md, "yes") == 0) metadata = true;
+    else if (strcmp(md, "no") != 0) fatal("md argument");
 
 
     int r_sock, m_sock, outfd;
@@ -325,7 +325,7 @@ int main(int argc, char *argv[]) {
 //
 //    write(r_sock, get.c_str(), get.size());
 //
-    char buffer[100000];
+    //char buffer[100000];
 //
 //    int len = 0;
 //    for (/*int num = 0; num < 1000; num += len*/;;) {
