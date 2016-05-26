@@ -4,6 +4,8 @@
 #include <poll.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #include <boost/regex.hpp>
 #include <boost/lexical_cast.hpp>
 #include "err.h"
@@ -17,13 +19,14 @@ const int QUEUE_LENGTH = 5;
 const int HEADER_MAN_LENGTH = 100000;
 const int TIME = 5000;
 
-/*void closefd(int fd) {
+void quit(int fd) {
     if (fd > 2) {
         if (close(fd) < 0) {
             syserr("close");
         }
     }
-}*/
+    exit(0);
+}
 
 class Radio {
 public:
@@ -230,8 +233,38 @@ int receive_get_request(const int sock) {
     return boost::lexical_cast<int>(match[2]);//atoi(static_cast<const char *>(what[2]));
 }
 
-void process_command(int sock, Radio &radio) {
-    
+void process_command(int sock, int out, Radio &radio) {
+    char buffer[6]; // TODO command size
+    ssize_t recvlen;
+    struct sockaddr_in addr;
+    socklen_t addrlen = sizeof(struct sockaddr_in);
+    recvlen = recvfrom(sock, buffer, 5, NULL, (struct sockaddr *) &addr, &addrlen);
+    //ssize_t len = read(sock, buffer, 5);
+    if (recvlen < 0) {
+        syserr("recvfrom");
+    }
+    else if (recvlen == 4) {
+        buffer[4] = NULL;
+        if (strcmp(buffer, "PLAY") == 0) {
+            radio.play();
+        }
+        else if (strcmp(buffer, "QUIT") == 0) {
+            quit(out);
+        }
+    }
+    else if (recvlen == 5) {
+        buffer[5] = NULL;
+        if (strcmp(buffer, "PAUSE") == 0) {
+            radio.pause();
+        }
+        else if (strcmp(buffer, "TITLE") == 0) {
+            std::string title = radio.title();
+            ssize_t sendlen = sendto(sock, title.c_str(), title.size(), NULL, (struct sockaddr *) &addr, addrlen);
+            if (sendlen < 0) {
+                syserr("sendto");
+            }
+        }
+    }
 }
 
 //void receive_get_request(const int sock, int &metaint, string &rest) {
@@ -309,42 +342,9 @@ int main(int argc, char *argv[]) {
             radio.process();
         }
         if (polls[1].revents == POLLIN) {
-            char buffer[6]; // TODO command size
-            int len = read(m_sock, buffer, 5);
-            if (len < 0) {
-                syserr("read command");
-            }
-            else if (len == 4) {
-                buffer[4] = NULL;
-                if (strcmp(buffer, "PLAY") == 0) {
-                    radio.play();
-                }
-                else if (strcmp(buffer, "QUIT") == 0) {
-                    break;
-                    /*closefd(outfd);
-                    return 0;*/
-                }
-            }
-            else if (len == 5) {
-                buffer[5] = NULL;
-                if (strcmp(buffer, "PAUSE") == 0) {
-                    radio.pause();
-                }
-                else if (strcmp(buffer, "TITLE") == 0) {
-                    std::string title = radio.title();
-
-                }
-            }
+            process_command(m_sock, outfd, radio);
         }
     }
-
-    if (outfd > 2) {
-        if (close(outfd) < 0) {
-            syserr("close");
-        }
-    }
-
-    return 0;
 
 //    std::string get = "";
 //    get += "GET / HTTP/1.0\r\n";
