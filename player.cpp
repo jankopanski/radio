@@ -4,8 +4,6 @@
 #include <poll.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <boost/regex.hpp>
 #include <boost/lexical_cast.hpp>
 #include "err.h"
@@ -53,7 +51,9 @@ public:
                     if (readlen < 0) {
                         syserr("read");
                     }
-                    // TODO if len == 0
+                    else if (readlen == 0) {
+                        fatal("connection broken");
+                    }
                     if (active) {
                         writelen = write(out, buffer, (size_t) readlen);
                         if (writelen < 0) {
@@ -72,13 +72,15 @@ public:
                     if (readlen < 0) {
                         syserr("read");
                     }
-                    //else if (readlen == 0) quit(); TODO else if
+                    else if (readlen == 0) {
+                        fatal("connection broken");
+                    }
                     metalen = static_cast<int>(buffer[0]) * 16;
                     cerr<<"len"<<metalen<<endl;
 //                    int a;
 //                    cin>>a;
                     if (metalen == 0) state = audio;
-                    else {state = meta; int a;cin>>a;};
+                    else state = meta;
                     break;
                 case meta:
                     readlen = read(in, buffer + metaread, (size_t) (metalen - metaread));
@@ -86,8 +88,10 @@ public:
                     if (readlen < 0) {
                         syserr("read");
                     }
+                    else if (readlen == 0) {
+                        fatal("connection broken");
+                    }
                     metaread += readlen;
-                    // TODO 0
                     if (metaread == metalen) {
                         buffer[metalen] = 0;
                         boost::cmatch what;
@@ -107,6 +111,9 @@ public:
             if (readlen < 0) {
                 syserr("read");
             }
+            else if (readlen == 0) {
+                fatal("connection broken");
+            }
             if (active) {
                 writelen = write(out, buffer, (size_t) readlen);
                 if (writelen < 0) {
@@ -125,7 +132,6 @@ public:
     }
 
     std::string title() {
-        // TODO zera wewnątrz tytułu, dodać długość tytułu
         return title_;
     }
 
@@ -148,7 +154,7 @@ private:
     ssize_t readlen;
     ssize_t writelen;
     char *buffer;
-    std::string title_;
+    std::string title_ = "";
     const boost::regex title_regex{"StreamTitle='(.*)'"};
 };
 
@@ -264,23 +270,22 @@ int receive_get_request(const int sock, const bool metadata) {
     if (!boost::regex_match(buffer, match, header)) {
         fatal("get response %s", buffer);
     }
-    int status = boost::lexical_cast<int>(match[1]);//atoi(static_cast<const char *>(what[1]));
+    int status = boost::lexical_cast<int>(match[1]);
     if (!(status == 200 || status == 302 || status == 304)) {
         fatal("get response status %d", status);
     }
     if (metadata) {
-        return boost::lexical_cast<int>(match[2]);//atoi(static_cast<const char *>(what[2]));
+        return boost::lexical_cast<int>(match[2]);
     }
     else return 0;
 }
 
 void process_command(int sock, int out, Radio &radio) {
-    char buffer[6]; // TODO command size
+    char buffer[6];
     ssize_t recvlen;
     struct sockaddr_in addr;
     socklen_t addrlen = sizeof(struct sockaddr_in);
     recvlen = recvfrom(sock, buffer, 6, 0, (struct sockaddr *) &addr, &addrlen);
-    //ssize_t len = read(sock, buffer, 5);
     if (recvlen < 0) {
         syserr("recvfrom");
     }
@@ -360,33 +365,4 @@ int main(int argc, char *argv[]) {
             process_command(m_sock, outfd, radio);
         }
     }
-
-//    std::string get = "";
-//    get += "GET / HTTP/1.0\r\n";
-//    //get += "Host: 66.220.31.135\r\n";
-//    get += "Host: stream3.polskieradio.pl\r\n";
-//    //get += "User-Agent: Orban/Coding Technologies AAC/aacPlus Plugin 1.0 (os=Windows NT 5.1 Service Pack 2)\r\n";
-//    get += "User-Agent: MPlayer 2.0-728-g2c378c7-4build1\r\n";
-//    //get += "Accept: */*\r\n";
-//    //get += "Icy-MetaData:1\r\n";
-//    get += "Icy-MetaData:0\r\n";
-//    //get += "Connection: close\r\n";
-//    get += "\r\n";
-//
-//    write(r_sock, get.c_str(), get.size());
-//
-    //char buffer[100000];
-//
-//    int len = 0;
-//    for (/*int num = 0; num < 1000; num += len*/;;) {
-//        len = read(r_sock, buffer, 100000);
-//        write(1, buffer, len);
-//    }
-
-
-//    for(;;) {
-//        //int readlen = recv(m_sock, buffer, sizeof(buffer), 0);
-//        int readlen = read(m_sock, buffer ,sizeof(buffer));
-//        write(1, buffer, readlen);
-//    }
 }
