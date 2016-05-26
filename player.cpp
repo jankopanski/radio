@@ -21,7 +21,7 @@ const int TIME = 5000;
 void quit(int fd) {
     if (fd > 2) {
         if (close(fd) < 0) {
-            syserr("close");
+            syserr("quit close");
         }
     }
     exit(0);
@@ -34,7 +34,7 @@ public:
         buffer_size = metadata ? min(max(audiolen, 4080) + 1, MAX_BUFFER_SIZE) : MAX_BUFFER_SIZE;
         buffer = (char *) malloc((size_t) buffer_size);
         if (buffer == NULL) {
-            syserr("malloc");
+            syserr("Radio malloc");
         }
     }
 
@@ -47,9 +47,9 @@ public:
             switch (state) {
                 case audio:
                     readlen = read(in, buffer, (size_t) min(audiolen - audioread, buffer_size));
-                    cerr<<"audio"<<readlen<<' '<<audioread<<endl;
+                    cerr << "audio" << readlen << ' ' << audioread << endl;
                     if (readlen < 0) {
-                        syserr("read");
+                        syserr("process read");
                     }
                     else if (readlen == 0) {
                         fatal("connection broken");
@@ -57,7 +57,7 @@ public:
                     if (active) {
                         writelen = write(out, buffer, (size_t) readlen);
                         if (writelen < 0) {
-                            syserr("write");
+                            syserr("process write");
                         }
                     }
                     audioread += readlen;
@@ -68,15 +68,15 @@ public:
                     break;
                 case byte:
                     readlen = read(in, buffer, 1);
-                    cerr<<"byte"<<readlen<<endl;
+                    cerr << "byte" << readlen << endl;
                     if (readlen < 0) {
-                        syserr("read");
+                        syserr("process read");
                     }
                     else if (readlen == 0) {
                         fatal("connection broken");
                     }
                     metalen = static_cast<int>(buffer[0]) * 16;
-                    cerr<<"len"<<metalen<<endl;
+                    cerr << "len" << metalen << endl;
 //                    int a;
 //                    cin>>a;
                     if (metalen == 0) state = audio;
@@ -84,9 +84,9 @@ public:
                     break;
                 case meta:
                     readlen = read(in, buffer + metaread, (size_t) (metalen - metaread));
-                    cerr<<"meta"<<readlen<<' '<<metaread<<endl;
+                    cerr << "meta" << readlen << ' ' << metaread << endl;
                     if (readlen < 0) {
-                        syserr("read");
+                        syserr("process read");
                     }
                     else if (readlen == 0) {
                         fatal("connection broken");
@@ -99,17 +99,17 @@ public:
                         title_ = what[1];
                         metaread = 0;
                         state = audio;
-                        cerr<<"Metadane: "<<buffer<<endl;
+                        cerr << "Metadane: " << buffer << endl;
                     }
                     break;
                 default:
-                    fatal("radio process");
+                    fatal("process");
             }
         }
         else {
             readlen = read(in, buffer, (size_t) buffer_size);
             if (readlen < 0) {
-                syserr("read");
+                syserr("process read");
             }
             else if (readlen == 0) {
                 fatal("connection broken");
@@ -117,7 +117,7 @@ public:
             if (active) {
                 writelen = write(out, buffer, (size_t) readlen);
                 if (writelen < 0) {
-                    syserr("write");
+                    syserr("process write");
                 }
             }
         }
@@ -164,7 +164,7 @@ int initialize_radio_socket(const char *host, const char *r_port) {
 
     r_sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (r_sock < 0) {
-        syserr("radio socket");
+        syserr("initialize_radio_socket socket");
     }
 
     memset(&addr_hints, 0, sizeof(struct addrinfo));
@@ -173,15 +173,15 @@ int initialize_radio_socket(const char *host, const char *r_port) {
     addr_hints.ai_protocol = IPPROTO_TCP;
     rc = getaddrinfo(host, r_port, &addr_hints, &addr_result);
     if (rc == EAI_SYSTEM) {
-        syserr("getaddrinfo: %s", gai_strerror(rc));
+        syserr("initialize_radio_socket getaddrinfo: %s", gai_strerror(rc));
     }
     else if (rc != 0) {
-        fatal("getaddrinfo: %s", gai_strerror(rc));
+        fatal("initialize_radio_socket getaddrinfo: %s", gai_strerror(rc));
     }
 
     rc = connect(r_sock, addr_result->ai_addr, addr_result->ai_addrlen);
     if (rc < 0) {
-        syserr("radio connect");
+        syserr("initialize_radio_socket connect");
     }
     freeaddrinfo(addr_result);
 
@@ -194,17 +194,17 @@ int initialize_message_socket(const char *m_port) {
 
     m_sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (m_sock < 0) {
-        syserr("message socket");
+        syserr("initialize_message_socket socket");
     }
 
     if (boost::regex_match(m_port, boost::regex("\\d+"))) {
         m_port_int = atoi(m_port);
         if (m_port_int < 1024 || m_port_int > 65535) {
-            fatal("Invalid port number: %d", m_port_int);
+            fatal("invalid port number: %d", m_port_int);
         }
     }
     else {
-        fatal("Invalid port number: %s", m_port);
+        fatal("invalid port number: %s", m_port);
     }
 
     controller.sin_family = AF_INET;
@@ -212,7 +212,7 @@ int initialize_message_socket(const char *m_port) {
     controller.sin_port = htons((uint16_t) m_port_int);
     rc = bind(m_sock, (struct sockaddr *) &controller, (socklen_t) sizeof(controller));
     if (rc < 0) {
-        syserr("bind");
+        syserr("initialize_message_socket bind");
     }
 
     return m_sock;
@@ -223,7 +223,7 @@ int initialize_output_file_descriptor(const char *file) {
     if (strcmp(file, "-") != 0) {
         fd = open(file, O_WRONLY | O_CREAT, S_IRWXU);
         if (fd < 0) {
-            syserr("open");
+            syserr("initialize_output_file_descriptor open");
         }
     }
     return fd;
@@ -235,11 +235,11 @@ void send_get_request(const int sock, const char *host, const char *path, const 
                           "GET %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: MPlayer 2.0-728-g2c378c7-4build1\r\nIcy-MetaData:%d\r\n\r\n",
                           path, host, (int) metadata);
     if (buflen < 0) {
-        syserr("snprintf");
+        syserr("send_get_request snprintf");
     }
     ssize_t rc = write(sock, buffer, (size_t) buflen);
     if (rc < 0) {
-        syserr("get write");
+        syserr("send_get_request write");
     }
 }
 
@@ -250,7 +250,7 @@ int receive_get_request(const int sock, const bool metadata) {
     while (state < 4) {
         rc = read(sock, buffer + len, 1);
         if (rc < 0) {
-            syserr("read");
+            syserr("receive_get_request read");
         }
         if ((buffer[len] == '\r' && (state == 0 || state == 2)) ||
             (buffer[len] == '\n' && (state == 1 || state == 3)))
@@ -287,7 +287,7 @@ void process_command(int sock, int out, Radio &radio) {
     socklen_t addrlen = sizeof(struct sockaddr_in);
     recvlen = recvfrom(sock, buffer, 6, 0, (struct sockaddr *) &addr, &addrlen);
     if (recvlen < 0) {
-        syserr("recvfrom");
+        syserr("process_command recvfrom");
     }
     else if (recvlen == 4) {
         buffer[4] = 0;
@@ -297,7 +297,7 @@ void process_command(int sock, int out, Radio &radio) {
         else if (strcmp(buffer, "QUIT") == 0) {
             quit(out);
         }
-        else fprintf(stderr, "Invalid command: %s", buffer);
+        else fprintf(stderr, "invalid command: %s", buffer);
     }
     else if (recvlen == 5) {
         buffer[5] = 0;
@@ -306,15 +306,15 @@ void process_command(int sock, int out, Radio &radio) {
         }
         else if (strcmp(buffer, "TITLE") == 0) {
             std::string title = radio.title();
-            cerr<<"Title: "<<title<<endl;
+            cerr << "Title: " << title << endl;
             ssize_t sendlen = sendto(sock, title.c_str(), title.size(), 0, (struct sockaddr *) &addr, addrlen);
             if (sendlen < 0) {
-                syserr("sendto");
+                syserr("process_command sendto");
             }
         }
-        else fprintf(stderr, "Invalid command: %s", buffer);
+        else fprintf(stderr, "invalid command: %s", buffer);
     }
-    else fprintf(stderr, "Invalid command: %s", buffer);
+    else fprintf(stderr, "invalid command: %s", buffer);
 }
 
 int main(int argc, char *argv[]) {
