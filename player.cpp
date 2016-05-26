@@ -267,36 +267,6 @@ void process_command(int sock, int out, Radio &radio) {
     }
 }
 
-//void receive_get_request(const int sock, int &metaint, string &rest) {
-//    const int CHUNK_SIZE = 1024;
-//    int bufread = 0;
-//    char buffer[HEADER_MAN_LENGTH];
-//    memset(buffer, 0, HEADER_MAN_LENGTH);
-//    boost::regex end(".*\r\n\r\n.*"); // TODO boost wyjątki
-//    do {
-//        if (bufread + CHUNK_SIZE > HEADER_MAN_LENGTH) {
-//            fatal("HEADER_MAN_LENGTH exceeded");
-//        }
-//        ssize_t len = read(sock, buffer + bufread, CHUNK_SIZE);
-//        if (len < 0) {
-//            syserr("read");
-//        }
-//        // TODO len == 0
-//        bufread += len;
-//    } while (boost::regex_match(buffer, end));
-//    boost::regex header("ICY.*(\\d{3}).*\r\n.*icy-metaint:(\\d+)\r\n.*\r\n\r\n(.*)");
-//    boost::smatch token;
-//    if (!boost::regex_match(buffer, token, header)) {
-//        fatal("Invalid get response %s", header);
-//    }
-//    int status = atoi(token[1]);
-//    if (!(status == 200 || status == 302 || status == 304)) {
-//        fatal("status %d", status);
-//    }
-//    metaint = atoi(token[2]);
-//    rest = string(token[3]);
-//}
-
 int main(int argc, char *argv[]) {
     if (argc != 7) {
         fatal("Usage: %s host path r-port file m-port md", argv[0]);
