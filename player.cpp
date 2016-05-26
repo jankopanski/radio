@@ -100,6 +100,7 @@ public:
                         metaread = 0;
                         state = audio;
                         cerr << "Metadane: " << buffer << endl;
+                        cerr<<title_<<endl;
                     }
                     break;
                 default:
@@ -155,7 +156,7 @@ private:
     ssize_t writelen;
     char *buffer;
     std::string title_ = "";
-    const boost::regex title_regex{"StreamTitle='(.*)'"};
+    const boost::regex title_regex{"StreamTitle='(.*)';StreamUrl='.*';"};
 };
 
 int initialize_radio_socket(const char *host, const char *r_port) {
@@ -271,7 +272,7 @@ int receive_get_request(const int sock, const bool metadata) {
         fatal("get response %s", buffer);
     }
     int status = boost::lexical_cast<int>(match[1]);
-    if (!(status == 200 || status == 302 || status == 304)) {
+    if (!(status == 200 || status == 302 || status == 304)) { // TODO kody statusów
         fatal("get response status %d", status);
     }
     if (metadata) {
