@@ -11,11 +11,12 @@
 #include "err.h"
 
 // ./player stream3.polskieradio.pl / 8900 - 10000 no
+// ./player stream3.polskieradio.pl / 8900 - 10000 no | mplayer -
 // echo -n "hello" > /dev/udp/localhost/10000
 
 using namespace std;
 
-const int QUEUE_LENGTH = 5;
+//const int QUEUE_LENGTH = 5;
 const int HEADER_MAN_LENGTH = 100000;
 const int TIME = 5000;
 
@@ -144,7 +145,7 @@ int initialize_radio_socket(const char *host, const char *r_port) {
     }
 
     rc = connect(r_sock, addr_result->ai_addr, addr_result->ai_addrlen);
-    if (rc != 0) {
+    if (rc < 0) {
         syserr("radio connect");
     }
     freeaddrinfo(addr_result);
@@ -208,7 +209,8 @@ void send_get_request(const int sock, const char *host, const char *path, const 
 }
 
 int receive_get_request(const int sock) {
-    int rc, state = 0, len = 0;
+    int state = 0, len = 0;
+    ssize_t rc;
     char buffer[HEADER_MAN_LENGTH];
     while (state < 4) {
         rc = read(sock, buffer + len, 1);
@@ -223,6 +225,7 @@ int receive_get_request(const int sock) {
     }
     boost::regex header("ICY.*(\\d{3}).*\r\n.*icy-metaint:(\\d+)\r\n.*");
     boost::cmatch match;
+    cerr<<buffer<<endl;
     if (!boost::regex_match(buffer, match, header)) {
         fatal("get response %s", buffer);
     }
@@ -238,33 +241,36 @@ void process_command(int sock, int out, Radio &radio) {
     ssize_t recvlen;
     struct sockaddr_in addr;
     socklen_t addrlen = sizeof(struct sockaddr_in);
-    recvlen = recvfrom(sock, buffer, 5, NULL, (struct sockaddr *) &addr, &addrlen);
+    recvlen = recvfrom(sock, buffer, 5, 0, (struct sockaddr *) &addr, &addrlen);
     //ssize_t len = read(sock, buffer, 5);
     if (recvlen < 0) {
         syserr("recvfrom");
     }
     else if (recvlen == 4) {
-        buffer[4] = NULL;
+        buffer[4] = 0;
         if (strcmp(buffer, "PLAY") == 0) {
             radio.play();
         }
         else if (strcmp(buffer, "QUIT") == 0) {
             quit(out);
         }
+        else fprintf(stderr, "Invalid command: %s", buffer);
     }
     else if (recvlen == 5) {
-        buffer[5] = NULL;
+        buffer[5] = 0;
         if (strcmp(buffer, "PAUSE") == 0) {
             radio.pause();
         }
         else if (strcmp(buffer, "TITLE") == 0) {
             std::string title = radio.title();
-            ssize_t sendlen = sendto(sock, title.c_str(), title.size(), NULL, (struct sockaddr *) &addr, addrlen);
+            ssize_t sendlen = sendto(sock, title.c_str(), title.size(), 0, (struct sockaddr *) &addr, addrlen);
             if (sendlen < 0) {
                 syserr("sendto");
             }
         }
+        else fprintf(stderr, "Invalid command: %s", buffer);
     }
+    else fprintf(stderr, "Invalid command: %s", buffer);
 }
 
 int main(int argc, char *argv[]) {
