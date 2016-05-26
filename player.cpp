@@ -31,8 +31,10 @@ void quit(int fd) {
 
 class Radio {
 public:
-    Radio(int r_sock, int outfd, int metaint, bool metadata) : in(r_sock), out(outfd), audiolen(metaint), metadata(metadata) {
-        buffer = (char *) malloc((size_t) (max(audiolen, 4080) + 1));
+    Radio(int r_sock, int outfd, int metaint, bool metadata) : in(r_sock), out(outfd), audiolen(metaint),
+                                                               metadata(metadata) {
+        buffer_size = metadata ? min(max(audiolen, 4080) + 1, MAX_BUFFER_SIZE) : MAX_BUFFER_SIZE;
+        buffer = (char *) malloc((size_t) buffer_size);
         if (buffer == NULL) {
             syserr("malloc");
         }
@@ -43,51 +45,65 @@ public:
     }
 
     void process() {
-        switch (state) {
-            case audio:
-                readlen = read(in, buffer, (size_t) (audiolen - audioread));
-                if (readlen < 0) {
-                    syserr("read");
-                }
-                // TODO if len == 0
-                if (active) {
-                    writelen = write(out, buffer, (size_t) readlen);
-                    if (writelen < 0) {
-                        syserr("write");
+        if (metadata) {
+            switch (state) {
+                case audio:
+                    readlen = read(in, buffer, (size_t) min(audiolen - audioread, buffer_size));
+                    if (readlen < 0) {
+                        syserr("read");
                     }
+                    // TODO if len == 0
+                    if (active) {
+                        writelen = write(out, buffer, (size_t) readlen);
+                        if (writelen < 0) {
+                            syserr("write");
+                        }
+                    }
+                    audioread += readlen;
+                    if (audioread == audiolen) {
+                        audioread = 0;
+                        if (metadata) state = byte;
+                    }
+                    break;
+                case byte:
+                    readlen = read(in, buffer, 1);
+                    if (readlen < 0) {
+                        syserr("read");
+                    }
+                    //else if (readlen == 0) quit(); TODO else if
+                    metalen = static_cast<int>(buffer[0]) * 16;
+                    state = meta;
+                    break;
+                case meta:
+                    readlen = read(in, buffer + metaread, (size_t) (metalen - metaread));
+                    if (readlen < 0) {
+                        syserr("read");
+                    }
+                    // TODO 0
+                    if (metaread == metalen) {
+                        buffer[metalen] = 0;
+                        boost::cmatch what;
+                        boost::regex_search(buffer, what, title_regex);
+                        title_ = what[1];
+                        metaread = 0;
+                        state = audio;
+                    }
+                    break;
+                default:
+                    fatal("radio process");
+            }
+        }
+        else {
+            readlen = read(in, buffer, (size_t) buffer_size);
+            if (readlen < 0) {
+                syserr("read");
+            }
+            if (active) {
+                writelen = write(out, buffer, (size_t) readlen);
+                if (writelen < 0) {
+                    syserr("write");
                 }
-                audioread += readlen;
-                if (audioread == audiolen) {
-                    audioread = 0;
-                    if (metadata) state = byte;
-                }
-                break;
-            case byte:
-                readlen = read(in, buffer, 1);
-                if (readlen < 0) {
-                    syserr("read");
-                }
-                //else if (readlen == 0) quit(); TODO else if
-                metalen = static_cast<int>(buffer[0]);
-                state = meta;
-                break;
-            case meta:
-                readlen = read(in, buffer + metaread, (size_t) (metalen - metaread));
-                if (readlen < 0) {
-                    syserr("read");
-                }
-                // TODO 0
-                if (metaread == metalen) {
-                    buffer[metalen] = 0;
-                    boost::cmatch what;
-                    boost::regex_search(buffer, what, title_regex);
-                    title_ = what[1];
-                    metaread = 0;
-                    state = audio;
-                }
-                break;
-            default:
-                fatal("radio process");
+            }
         }
     }
 
@@ -105,17 +121,21 @@ public:
     }
 
 private:
-    enum State {audio, byte, meta};
+    enum State {
+        audio, byte, meta
+    };
 
     State state = audio;
     bool active = true;
     const int in;
     const int out;
     const int audiolen;
+    const static int MAX_BUFFER_SIZE = 8192;
     const bool metadata;
     int metalen = 0;
     int audioread = 0;
     int metaread = 0;
+    int buffer_size;
     ssize_t readlen;
     ssize_t writelen;
     char *buffer;
@@ -208,7 +228,7 @@ void send_get_request(const int sock, const char *host, const char *path, const 
     }
 }
 
-int receive_get_request(const int sock) {
+int receive_get_request(const int sock, const bool metadata) {
     int state = 0, len = 0;
     ssize_t rc;
     char buffer[HEADER_MAN_LENGTH];
@@ -223,9 +243,15 @@ int receive_get_request(const int sock) {
         else state = 0;
         ++len;
     }
-    boost::regex header("ICY.*(\\d{3}).*\r\n.*icy-metaint:(\\d+)\r\n.*");
+    boost::regex header;
     boost::cmatch match;
-    cerr<<buffer<<endl;
+    if (metadata) {
+        header = boost::regex("ICY.*(\\d{3}).*\r\n.*icy-metaint:(\\d+)\r\n.*");
+    }
+    else {
+        header = boost::regex("ICY.*(\\d{3}).*\r\n.*");
+    }
+    cerr << buffer << endl;
     if (!boost::regex_match(buffer, match, header)) {
         fatal("get response %s", buffer);
     }
@@ -233,7 +259,10 @@ int receive_get_request(const int sock) {
     if (!(status == 200 || status == 302 || status == 304)) {
         fatal("get response status %d", status);
     }
-    return boost::lexical_cast<int>(match[2]);//atoi(static_cast<const char *>(what[2]));
+    if (metadata) {
+        return boost::lexical_cast<int>(match[2]);//atoi(static_cast<const char *>(what[2]));
+    }
+    else return 0;
 }
 
 void process_command(int sock, int out, Radio &radio) {
@@ -300,7 +329,7 @@ int main(int argc, char *argv[]) {
 
     send_get_request(r_sock, host, path, metadata);
 
-    int metaint = receive_get_request(r_sock);
+    int metaint = receive_get_request(r_sock, metadata);
 
     Radio radio = Radio(r_sock, outfd, metaint, metadata);
 
