@@ -12,12 +12,12 @@
 
 // ./player stream3.polskieradio.pl / 8900 - 10000 no
 // ./player stream3.polskieradio.pl / 8900 - 10000 no | mplayer -
+// ./player stream3.polskieradio.pl / 8900 - 10000 no | mplayer -cache 1024 -
 // echo -n "hello" > /dev/udp/localhost/10000
 
 using namespace std;
 
-//const int QUEUE_LENGTH = 5;
-const int HEADER_MAN_LENGTH = 100000;
+const int HEADER_MAX_LENGTH = 100000;
 const int TIME = 5000;
 
 void quit(int fd) {
@@ -49,6 +49,7 @@ public:
             switch (state) {
                 case audio:
                     readlen = read(in, buffer, (size_t) min(audiolen - audioread, buffer_size));
+                    cerr<<"audio"<<readlen<<' '<<audioread<<endl;
                     if (readlen < 0) {
                         syserr("read");
                     }
@@ -67,18 +68,25 @@ public:
                     break;
                 case byte:
                     readlen = read(in, buffer, 1);
+                    cerr<<"byte"<<readlen<<endl;
                     if (readlen < 0) {
                         syserr("read");
                     }
                     //else if (readlen == 0) quit(); TODO else if
                     metalen = static_cast<int>(buffer[0]) * 16;
-                    state = meta;
+                    cerr<<"len"<<metalen<<endl;
+//                    int a;
+//                    cin>>a;
+                    if (metalen == 0) state = audio;
+                    else {state = meta; int a;cin>>a;};
                     break;
                 case meta:
                     readlen = read(in, buffer + metaread, (size_t) (metalen - metaread));
+                    cerr<<"meta"<<readlen<<' '<<metaread<<endl;
                     if (readlen < 0) {
                         syserr("read");
                     }
+                    metaread += readlen;
                     // TODO 0
                     if (metaread == metalen) {
                         buffer[metalen] = 0;
@@ -87,6 +95,7 @@ public:
                         title_ = what[1];
                         metaread = 0;
                         state = audio;
+                        cerr<<"Metadane: "<<buffer<<endl;
                     }
                     break;
                 default:
@@ -215,8 +224,8 @@ int initialize_output_file_descriptor(const char *file) {
 }
 
 void send_get_request(const int sock, const char *host, const char *path, const bool metadata) {
-    char buffer[HEADER_MAN_LENGTH];
-    int buflen = snprintf(buffer, HEADER_MAN_LENGTH - 1,
+    char buffer[HEADER_MAX_LENGTH];
+    int buflen = snprintf(buffer, HEADER_MAX_LENGTH - 1,
                           "GET %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: MPlayer 2.0-728-g2c378c7-4build1\r\nIcy-MetaData:%d\r\n\r\n",
                           path, host, (int) metadata);
     if (buflen < 0) {
@@ -231,7 +240,7 @@ void send_get_request(const int sock, const char *host, const char *path, const 
 int receive_get_request(const int sock, const bool metadata) {
     int state = 0, len = 0;
     ssize_t rc;
-    char buffer[HEADER_MAN_LENGTH];
+    char buffer[HEADER_MAX_LENGTH];
     while (state < 4) {
         rc = read(sock, buffer + len, 1);
         if (rc < 0) {
@@ -246,10 +255,10 @@ int receive_get_request(const int sock, const bool metadata) {
     boost::regex header;
     boost::cmatch match;
     if (metadata) {
-        header = boost::regex("ICY.*(\\d{3}).*\r\n.*icy-metaint:(\\d+)\r\n.*");
+        header = boost::regex("ICY (\\d{3}).*\r\n.*icy-metaint:(\\d+)\r\n.*");
     }
     else {
-        header = boost::regex("ICY.*(\\d{3}).*\r\n.*");
+        header = boost::regex("ICY (\\d{3}).*\r\n.*");
     }
     cerr << buffer << endl;
     if (!boost::regex_match(buffer, match, header)) {
@@ -270,7 +279,7 @@ void process_command(int sock, int out, Radio &radio) {
     ssize_t recvlen;
     struct sockaddr_in addr;
     socklen_t addrlen = sizeof(struct sockaddr_in);
-    recvlen = recvfrom(sock, buffer, 5, 0, (struct sockaddr *) &addr, &addrlen);
+    recvlen = recvfrom(sock, buffer, 6, 0, (struct sockaddr *) &addr, &addrlen);
     //ssize_t len = read(sock, buffer, 5);
     if (recvlen < 0) {
         syserr("recvfrom");
@@ -292,6 +301,7 @@ void process_command(int sock, int out, Radio &radio) {
         }
         else if (strcmp(buffer, "TITLE") == 0) {
             std::string title = radio.title();
+            cerr<<"Title: "<<title<<endl;
             ssize_t sendlen = sendto(sock, title.c_str(), title.size(), 0, (struct sockaddr *) &addr, addrlen);
             if (sendlen < 0) {
                 syserr("sendto");
