@@ -17,14 +17,13 @@ const int QUEUE_LENGTH = 5;
 const int HEADER_MAN_LENGTH = 100000;
 const int TIME = 5000;
 
-void quit(int fd) {
+/*void closefd(int fd) {
     if (fd > 2) {
         if (close(fd) < 0) {
             syserr("close");
         }
     }
-    exit(0);
-}
+}*/
 
 class Radio {
 public:
@@ -231,6 +230,10 @@ int receive_get_request(const int sock) {
     return boost::lexical_cast<int>(match[2]);//atoi(static_cast<const char *>(what[2]));
 }
 
+void process_command(int sock, Radio &radio) {
+    
+}
+
 //void receive_get_request(const int sock, int &metaint, string &rest) {
 //    const int CHUNK_SIZE = 1024;
 //    int bufread = 0;
@@ -303,13 +306,45 @@ int main(int argc, char *argv[]) {
             syserr("poll");
         }
         if (polls[0].revents == POLLIN) {
-
+            radio.process();
         }
         if (polls[1].revents == POLLIN) {
+            char buffer[6]; // TODO command size
+            int len = read(m_sock, buffer, 5);
+            if (len < 0) {
+                syserr("read command");
+            }
+            else if (len == 4) {
+                buffer[4] = NULL;
+                if (strcmp(buffer, "PLAY") == 0) {
+                    radio.play();
+                }
+                else if (strcmp(buffer, "QUIT") == 0) {
+                    break;
+                    /*closefd(outfd);
+                    return 0;*/
+                }
+            }
+            else if (len == 5) {
+                buffer[5] = NULL;
+                if (strcmp(buffer, "PAUSE") == 0) {
+                    radio.pause();
+                }
+                else if (strcmp(buffer, "TITLE") == 0) {
+                    std::string title = radio.title();
 
+                }
+            }
         }
     }
 
+    if (outfd > 2) {
+        if (close(outfd) < 0) {
+            syserr("close");
+        }
+    }
+
+    return 0;
 
 //    std::string get = "";
 //    get += "GET / HTTP/1.0\r\n";
