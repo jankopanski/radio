@@ -31,7 +31,7 @@ class Radio {
 public:
     Radio(int r_sock, int outfd, int metaint, bool metadata) : in(r_sock), out(outfd), audiolen(metaint),
                                                                metadata(metadata) {
-        buffer_size = metadata ? min(max(audiolen, 4080) + 1, MAX_BUFFER_SIZE) : MAX_BUFFER_SIZE;
+        buffer_size = metadata ? min(max(audiolen, 4080) + 1, MAX_BUFFER_SIZE) : MAX_BUFFER_SIZE; // TODO statyczny buffer
         buffer = (char *) malloc((size_t) buffer_size);
         if (buffer == NULL) {
             syserr("Radio malloc");

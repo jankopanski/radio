@@ -6,10 +6,6 @@ TARGETS = player master
 
 all: $(TARGETS)
 
-err.o: err.c err.h
-
-player.o: player.cpp err.h
-
 player: player.o err.o
 	$(CC) $(LFLAGS) $^ -o $@ -lboost_regex
 
