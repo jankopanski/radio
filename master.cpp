@@ -27,9 +27,9 @@ class DelayedSshSesion : public SshSession {
 
 };
 
-int parse_port_number(std::string port) {
+int parse_port_number(char *port) {
     static boost::regex port_regex("\\d+");
-    boost::smatch match;
+    boost::cmatch match;
     if (!boost::regex_match(port, match, port_regex)) {
         fatal("invalid port number %s", port);
     }
