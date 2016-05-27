@@ -1,7 +1,6 @@
 #include <iostream>
 #include <thread>
 #include <netdb.h>
-//#include <sys/types.h>
 #include <boost/regex.hpp>
 #include <boost/lexical_cast.hpp>
 #include "err.h"
@@ -68,10 +67,11 @@ public:
     // sensowne wczytywanie danych
     // to chyba jest ok
     // czyszczenie bufora
-    void process() {
+    void listen() {
         bool cr = false;
         ssize_t rc;
-        len = 0;
+        size_t len = 0;
+        char buffer[BUFFER_SIZE + 1];
         for (; ;) {
             rc = read(sock, buffer + len, 1);
             if (rc < 0) {
@@ -79,22 +79,27 @@ public:
                 return;
             }
             else if (rc == 0) {
-                fprintf(stderr, "Telnet client on socket %d closed\n", sock);
+                fprintf(stderr, "ERROR: Telnet client on socket %d closed connection\n", sock);
                 return;
             }
             else if (len + 1 >= BUFFER_SIZE) {
-                fprintf(stderr, "Telnet buffer exceeded, invalid command:\n%.*s\n", BUFFER_SIZE, buffer);
+                buffer[BUFFER_SIZE] = 0;
+                len = 0;
+                fprintf(stderr, "ERROR: Telnet buffer exceeded, invalid command:\n");
             }
             else if (buffer[len] == '\r') {
                 cr = true;
             }
-            else if (buffer[len] == '\n' || (buffer == '\0' && cr)) {
-                // akceptuj
+            else if (buffer[len] == '\n' || (buffer[len] == '\0' && cr)) {
+                buffer[len + 1] = 0;
+                len = 0;
+                cr = false;
+                parse_command(buffer);
             }
             else {
                 cr = false;
+                ++len;
             }
-
         }
 //        char buffer[1024];
 //        ssize_t len = read(sock, buffer, sizeof(buffer));
@@ -104,8 +109,31 @@ public:
 private:
     static const int BUFFER_SIZE = 1024;
     int sock;
-    size_t len;
-    char buffer[BUFFER_SIZE];
+
+    void parse_command(char *command) {
+        // START komputer host path r-port file m-port md
+        static const boost::regex start_regex("START +(\\S+) +((?:\\S+) +(?:\\S+) +(?:\\d+) +(?:\\S+) +(?:\\d+) +(?:yes|no))");
+        // AT HH.MM M komputer host path r-port file m-port md
+        static const boost::regex at_regex("AT +(\\d{2}\\.\\d{2}) +(\\d) +(\\S+) +((?:\\S+) +(?:\\S+) +(?:\\d+) +(?:\\S+) +(?:\\d+) +(?:yes|no))");
+        // PAUSE | PLAY | QUIT  ID
+        static const boost::regex command_regex("(PAUSE|PLAY|QUIT) +(\\d+)");
+        // TITLE ID
+        static const boost::regex title_regex("TITLE +(\\d+)");
+
+        boost::cmatch match;
+        if (boost::regex_match(command, match, command_regex)) {
+
+        }
+        else if (boost::regex_match(command, match, title_regex)) {
+
+        }
+        else if (boost::regex_match(command, match, start_regex)) {
+
+        }
+        else if (boost::regex_match(command, match, at_regex)) {
+
+        }
+    }
 };
 
 class SshSession {
@@ -119,7 +147,7 @@ class DelayedSshSesion : public SshSession {
 void telnet_listen(int telnet_sock) {
     //cerr << telnet_sock << endl;
     TelnetSession telnet(telnet_sock);
-    telnet.process();
+    telnet.listen();
 }
 
 int parse_port_number(char *port) {
