@@ -1,27 +1,14 @@
 #include <iostream>
 #include <thread>
 #include <netdb.h>
+//#include <sys/types.h>
 #include <boost/regex.hpp>
 #include <boost/lexical_cast.hpp>
 #include "err.h"
 
 using namespace std;
 
-void telnet_listen(int telnet_sock) {
-    cerr << telnet_sock << endl;
-}
-
-int parse_port_number(char *port) {
-    static boost::regex port_regex("\\d+");
-    if (!boost::regex_match(port, port_regex)) {
-        fatal("Invalid port number %s", port);
-    }
-    int port_num = boost::lexical_cast<int>(port);
-    if (port_num < 1024 || port_num > 65535) {
-        fatal("Invalid port number %d", port_num);
-    }
-    return port_num;
-}
+void telnet_listen(int);
 
 // TODO sensowna obsługa wyjątków
 class SocketListener {
@@ -75,12 +62,50 @@ private:
 
 class TelnetSession {
 public:
-    TelnetSession(int telnetsock) : sock(telnetsock) {
+    TelnetSession(int telnetsock) : sock(telnetsock) { }
 
+    // TODO read, parse, process
+    // sensowne wczytywanie danych
+    // to chyba jest ok
+    // czyszczenie bufora
+    void process() {
+        bool cr = false;
+        ssize_t rc;
+        len = 0;
+        for (; ;) {
+            rc = read(sock, buffer + len, 1);
+            if (rc < 0) {
+                perror("TelnetSession process read");
+                return;
+            }
+            else if (rc == 0) {
+                fprintf(stderr, "Telnet client on socket %d closed\n", sock);
+                return;
+            }
+            else if (len + 1 >= BUFFER_SIZE) {
+                fprintf(stderr, "Telnet buffer exceeded, invalid command:\n%.*s\n", BUFFER_SIZE, buffer);
+            }
+            else if (buffer[len] == '\r') {
+                cr = true;
+            }
+            else if (buffer[len] == '\n' || (buffer == '\0' && cr)) {
+                // akceptuj
+            }
+            else {
+                cr = false;
+            }
+
+        }
+//        char buffer[1024];
+//        ssize_t len = read(sock, buffer, sizeof(buffer));
+//        cerr<<len<<endl;
     }
 
 private:
+    static const int BUFFER_SIZE = 1024;
     int sock;
+    size_t len;
+    char buffer[BUFFER_SIZE];
 };
 
 class SshSession {
@@ -90,6 +115,24 @@ class SshSession {
 class DelayedSshSesion : public SshSession {
 
 };
+
+void telnet_listen(int telnet_sock) {
+    //cerr << telnet_sock << endl;
+    TelnetSession telnet(telnet_sock);
+    telnet.process();
+}
+
+int parse_port_number(char *port) {
+    static boost::regex port_regex("\\d+");
+    if (!boost::regex_match(port, port_regex)) {
+        fatal("Invalid port number %s", port);
+    }
+    int port_num = boost::lexical_cast<int>(port);
+    if (port_num < 1024 || port_num > 65535) {
+        fatal("Invalid port number %d", port_num);
+    }
+    return port_num;
+}
 
 int main(int argc, char *argv[]) {
     int port = 0;

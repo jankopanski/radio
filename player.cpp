@@ -258,6 +258,9 @@ int receive_get_request(const int sock, const bool metadata) {
             ++state;
         else state = 0;
         ++len;
+        if (len >= HEADER_MAX_LENGTH) {
+            fatal("buffer overflow");
+        }
     }
     boost::regex header;
     boost::cmatch match;
