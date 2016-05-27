@@ -199,7 +199,7 @@ int initialize_message_socket(const char *m_port) {
     }
 
     if (boost::regex_match(m_port, boost::regex("\\d+"))) {
-        m_port_int = atoi(m_port);
+        m_port_int = atoi(m_port); // TODO lexical_cast
         if (m_port_int < 1024 || m_port_int > 65535) {
             fatal("invalid port number: %d", m_port_int);
         }
