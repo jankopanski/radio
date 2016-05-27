@@ -95,7 +95,7 @@ public:
                     if (metaread == metalen) {
                         buffer[metalen] = 0;
                         boost::cmatch what;
-                        boost::regex_search(buffer, what, title_regex);
+                        boost::regex_search(buffer, what, title_regex); // TODO boost regex exceptions
                         title_ = what[1];
                         metaread = 0;
                         state = audio;
@@ -156,7 +156,7 @@ private:
     ssize_t writelen;
     char *buffer;
     std::string title_ = "";
-    const boost::regex title_regex{"StreamTitle='(.*)';StreamUrl='.*';"};
+    const boost::regex title_regex{"StreamTitle='([^';]*)';"};
 };
 
 int initialize_radio_socket(const char *host, const char *r_port) {
@@ -262,10 +262,10 @@ int receive_get_request(const int sock, const bool metadata) {
     boost::regex header;
     boost::cmatch match;
     if (metadata) {
-        header = boost::regex("ICY (\\d{3}).*\r\n.*icy-metaint:(\\d+)\r\n.*");
+        header = boost::regex("(?:ICY|HTTP/1.0|HTTP/1.1) (\\d{3}).*\r\n.*icy-metaint:(\\d+)\r\n.*");
     }
     else {
-        header = boost::regex("ICY (\\d{3}).*\r\n.*");
+        header = boost::regex("(?:ICY|HTTP/1.0|HTTP/1.1) (\\d{3}).*\r\n.*");
     }
     cerr << buffer << endl;
     if (!boost::regex_match(buffer, match, header)) {
