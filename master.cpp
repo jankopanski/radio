@@ -76,16 +76,20 @@ public:
             rc = read(sock, buffer + len, 1);
             if (rc < 0) {
                 perror("TelnetSession process read");
-                return;
+                throw ConnectionClosed();
+                //return;
             }
             else if (rc == 0) {
-                fprintf(stderr, "ERROR: Telnet client on socket %d closed connection\n", sock);
-                return;
+                fprintf(stderr, "Telnet client on socket %d closed connection\n", sock);
+                throw ConnectionClosed();
+                //return;
             }
             else if (len + 1 >= BUFFER_SIZE) {
                 buffer[BUFFER_SIZE] = 0;
                 len = 0;
-                fprintf(stderr, "ERROR: Telnet buffer exceeded, invalid command:\n");
+                fprintf(stderr, "Telnet buffer exceeded, invalid command:\n%s\n", buffer);
+                send("ERROR: buffer exceeded, invalid command");
+                // TODO wypisywanie błędów do sesji telnet
             }
             else if (buffer[len] == '\r') {
                 cr = true;
@@ -106,11 +110,31 @@ public:
 //        cerr<<len<<endl;
     }
 
+    void send(std::string message) {
+        ssize_t rc;
+        rc = write(sock, message.c_str(), message.size());
+        if (rc < 0) {
+            perror("TelnetSession send write");
+            throw ConnectionClosed();
+        }
+    }
+
+    class ConnectionClosed: public std::exception
+    {
+    public:
+        virtual const char* what() const throw()
+        {
+            return "Connection closed";
+        }
+    };
+
 private:
     static const int BUFFER_SIZE = 1024;
+    static const ConnectionClosed ex;
     int sock;
 
     void parse_command(char *command) {
+        //cerr<<command<<endl;
         // START komputer host path r-port file m-port md
         static const boost::regex start_regex("START +(\\S+) +((?:\\S+) +(?:\\S+) +(?:\\d+) +(?:\\S+) +(?:\\d+) +(?:yes|no))");
         // AT HH.MM M komputer host path r-port file m-port md
@@ -133,6 +157,9 @@ private:
         else if (boost::regex_match(command, match, at_regex)) {
 
         }
+        else {
+
+        }
     }
 };
 
@@ -147,7 +174,12 @@ class DelayedSshSesion : public SshSession {
 void telnet_listen(int telnet_sock) {
     //cerr << telnet_sock << endl;
     TelnetSession telnet(telnet_sock);
-    telnet.listen();
+    try {
+        telnet.listen();
+    }
+    catch(TelnetSession::ConnectionClosed ex) {
+        fprintf(stderr, ex.what());
+    }
 }
 
 int parse_port_number(char *port) {
