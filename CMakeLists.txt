@@ -1,7 +1,17 @@
 cmake_minimum_required(VERSION 3.3)
 project(radio)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -lboost_regex")
+find_package(Boost)
+IF (Boost_FOUND)
+ include_directories(${Boost_INCLUDE_DIR})
+endif()
+set (Boost_USE_STATIC_LIBS OFF) # enable dynamic linking
+set (Boost_USE_MULTITHREAD ON)  # enable multithreading
+find_package (Boost COMPONENTS REQUIRED regex)
 
-set(SOURCE_FILES player.cpp master.cpp err.c err.h)
-add_executable(player ${SOURCE_FILES})
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+
+set(SOURCE_FILES player.cpp err.c)
+add_executable(radio ${SOURCE_FILES})
+
+target_link_libraries (radio ${Boost_LIBRARIES})
