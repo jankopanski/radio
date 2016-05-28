@@ -93,6 +93,8 @@ public:
         if (rc != SSH_OK) throw SshException("start ssh_channel_request_exec " + player);
     }
 
+    friend void ssh_exit(shared_ptr<SshSession>);
+
 //    SshSession(int id, std::string player, std::string arguments, TelnetSession *telnetSession) : id(id), master(telnetSession) {
 //
 //    }
@@ -178,6 +180,18 @@ public:
 //        cerr<<len<<endl;
     }
 
+    void finish(int id, int status) {
+        auto it = SshSessions.find(id);
+        if (it != SshSessions.end()) {
+            SshSessions.erase(it);
+            std::string s("Player " + std::to_string(id) + " finished with status " + std::to_string(status) + "\r\n");
+            send(s);
+        }
+        else {
+            fprintf(stderr, "TelnetSession finish id: %d, status: %d\n", id, status);
+        }
+    }
+
     class ConnectionClosed: public std::exception {
     public:
         virtual const char* what() const throw()
@@ -259,8 +273,8 @@ void telnet_listen(int telnet_sock) {
 }
 
 void ssh_exit(shared_ptr<SshSession> session) {
-    int status = ssh_channel_get_exit_status(session->getChannel());
-
+    int status = ssh_channel_get_exit_status(session->channel);
+    session->master->finish(session->id, status);
 }
 
 int parse_port_number(char *port) {
