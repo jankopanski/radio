@@ -196,9 +196,9 @@ private:
     void parse_command(char *command) {
         //cerr<<command<<endl;
         // START komputer host path r-port file m-port md
-        static const boost::regex start_regex("START +(\\S+) +((?:\\S+) +(?:\\S+) +(?:\\d+) +(?:\\S+) +(?:\\d+) +(?:yes|no))\\s*");
+        static const boost::regex start_regex("START +(\\S+) +(\\S+ +\\S+ +\\d+ +\\S+ +\\d+ +(?:yes|no))\\s*");
         // AT HH.MM M komputer host path r-port file m-port md
-        static const boost::regex at_regex("AT +(\\d{2}\\.\\d{2}) +(\\d) +(\\S+) +((?:\\S+) +(?:\\S+) +(?:\\d+) +(?:\\S+) +(?:\\d+) +(?:yes|no))\\s*");
+        static const boost::regex at_regex("AT +(\\d{2}\\.\\d{2}) +(\\d) +(\\S+) +(\\S+ +\\S+ +\\d+ +\\S+ +\\d+ +(?:yes|no))\\s*");
         // PAUSE | PLAY | QUIT  ID
         static const boost::regex command_regex("(PAUSE|PLAY|QUIT) +(\\d+)\\s*");
         // TITLE ID
