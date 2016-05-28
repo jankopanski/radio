@@ -3,15 +3,17 @@
 #include <thread>
 #include <netdb.h>
 #include <sys/socket.h>
+#include <libssh/libssh.h>
 #include <boost/regex.hpp>
 #include <boost/lexical_cast.hpp>
 #include "err.h"
 
 using namespace std;
 
-void telnet_listen(int);
-//class SshSession;
+class SshSession;
 class TelnetSession;
+void telnet_listen(int);
+void ssh_exit(shared_ptr<SshSession>);
 
 // TODO sensowna obsługa wyjątków
 class SocketListener {
@@ -65,20 +67,56 @@ private:
 
 class SshSession {
 public:
-    SshSession() { }
+    SshSession(int id, TelnetSession *telnet_session) : id(id), master(telnet_session) { }
 
-    SshSession(int id, std::string player, std::string arguments, TelnetSession *telnetSession) : id(id), master(telnetSession) {
-
+    ssh_channel getChannel() {
+        return channel;
     }
+
+    void start(std::string player, std::string arguments) {
+        int rc;
+        session = ssh_new();
+        // TODO ssh_free(session)
+        // ssh_disconnect
+        if (session == NULL) throw SshException("start ssh_new " + player);
+        ssh_options_set(session, SSH_OPTIONS_HOST, player.c_str());
+        rc = ssh_connect(session);
+        if (rc != SSH_OK) throw SshException("start ssh_connect " + player);
+        rc = ssh_userauth_publickey_auto(session, NULL, NULL);
+        if (rc != SSH_AUTH_SUCCESS) throw SshException("start ssh_userauth_publickey_auto " + player);
+        channel = ssh_channel_new(session);
+        if (channel == NULL) throw SshException("start ssh_channel_new " + player);
+        rc = ssh_channel_open_session(channel);
+        if (rc != SSH_OK) throw SshException("start ssh_channel_open_session " + player);
+        std::string command = "./player " + arguments;
+        rc = ssh_channel_request_exec(channel, command.c_str());
+        if (rc != SSH_OK) throw SshException("start ssh_channel_request_exec " + player);
+    }
+
+//    SshSession(int id, std::string player, std::string arguments, TelnetSession *telnetSession) : id(id), master(telnetSession) {
+//
+//    }
+    class SshException: public std::exception {
+    public:
+        SshException(std::string s) : message(s) { }
+        virtual const char* what() const throw() {
+            return message.c_str();
+        }
+    private:
+        std::string message;
+    };
 
 private:
     int id;
+    ssh_session session;
+    ssh_channel channel;
     shared_ptr<TelnetSession> master;
 };
 
-//class DelayedSshSesion : public SshSession {
-//public:
-//};
+class DelayedSshSesion : public SshSession {
+public:
+    DelayedSshSesion(int id, TelnetSession *telnet_session) : SshSession(id, telnet_session) { }
+};
 
 class TelnetSession {
 public:
@@ -140,8 +178,7 @@ public:
 //        cerr<<len<<endl;
     }
 
-    class ConnectionClosed: public std::exception
-    {
+    class ConnectionClosed: public std::exception {
     public:
         virtual const char* what() const throw()
         {
@@ -153,8 +190,8 @@ private:
     static const int BUFFER_SIZE = 1024;
     static const ConnectionClosed ex;
     int sock;
-    int next_id = 0;
-    std::unordered_map<int, unique_ptr<SshSession>> SshSessions;
+    int next_id = 1;
+    std::unordered_map<int, shared_ptr<SshSession>> SshSessions;
 
     void parse_command(char *command) {
         //cerr<<command<<endl;
@@ -187,11 +224,26 @@ private:
     }
 
     void start_ssh_session(std::string player, std::string arguments) {
+        std::shared_ptr<SshSession> ssh(new SshSession(next_id, this));
+        try {
+            ssh->start(player, arguments);
+        }
+        catch(SshSession::SshException &ex) {
+            fprintf(stderr, "%s\n", ex.what());
+            send("ERROR: START " + player + "\r\n");
+            return;
+        }
+        //SshSessions.emplace(std::make_pair(next_id, ssh));
+        SshSessions.insert(std::make_pair(next_id, ssh));
+        //std::thread(telnet_listen, telnet_sock).detach();
+        std::thread(ssh_exit, ssh).detach();
+        // TODO exception o thread
+        send("OK " + next_id);
+        ++next_id;
         //cerr<<player<< endl <<arguments<<endl;
         //SshSessions.emplace(std::make_pair(next_id, std::unique_ptr<SshSession>(new SshSession)));
         //SshSessions.insert({next_id, std::unique_ptr<SshSession>(new SshSession(next_id, player, arguments, this))});
-        SshSessions.emplace(std::make_pair(next_id, std::unique_ptr<SshSession>(new SshSession(next_id, player, arguments, this))));
-        
+        //SshSessions.emplace(std::make_pair(next_id, std::unique_ptr<SshSession>(new SshSession(next_id, player, arguments, this))));
     }
 };
 
@@ -201,9 +253,14 @@ void telnet_listen(int telnet_sock) {
     try {
         telnet.listen();
     }
-    catch(TelnetSession::ConnectionClosed ex) {
+    catch(TelnetSession::ConnectionClosed &ex) {
         fprintf(stderr, "%s\n", ex.what());
     }
+}
+
+void ssh_exit(shared_ptr<SshSession> session) {
+    int status = ssh_channel_get_exit_status(session->getChannel());
+
 }
 
 int parse_port_number(char *port) {

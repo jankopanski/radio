@@ -10,7 +10,7 @@ player: player.o err.o
 	$(CC) $(LFLAGS) $^ -o $@ -lboost_regex
 
 master: master.o err.o
-	$(CC) $(LFLAGS) $^ -o $@ -lboost_regex
+	$(CC) $(LFLAGS) $^ -o $@ -lssh -lboost_regex
 
 clean:
 	rm -f $(TARGETS) *.o *~ *.bak
