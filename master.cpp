@@ -1,4 +1,5 @@
 #include <iostream>
+#include <unordered_map>
 #include <thread>
 #include <netdb.h>
 #include <sys/socket.h>
@@ -9,6 +10,8 @@
 using namespace std;
 
 void telnet_listen(int);
+//class SshSession;
+class TelnetSession;
 
 // TODO sensowna obsługa wyjątków
 class SocketListener {
@@ -59,6 +62,23 @@ private:
     int sock;
     //set<std::shared_ptr<TelnetSession>> TelnetSessions;
 };
+
+class SshSession {
+public:
+    SshSession() { }
+
+    SshSession(int id, std::string player, std::string arguments, TelnetSession *telnetSession) : id(id), master(telnetSession) {
+
+    }
+
+private:
+    int id;
+    shared_ptr<TelnetSession> master;
+};
+
+//class DelayedSshSesion : public SshSession {
+//public:
+//};
 
 class TelnetSession {
 public:
@@ -133,6 +153,8 @@ private:
     static const int BUFFER_SIZE = 1024;
     static const ConnectionClosed ex;
     int sock;
+    int next_id = 0;
+    std::unordered_map<int, unique_ptr<SshSession>> SshSessions;
 
     void parse_command(char *command) {
         //cerr<<command<<endl;
@@ -165,16 +187,12 @@ private:
     }
 
     void start_ssh_session(std::string player, std::string arguments) {
-        //cerr<<player<<' '<<arguments<<endl;
+        //cerr<<player<< endl <<arguments<<endl;
+        //SshSessions.emplace(std::make_pair(next_id, std::unique_ptr<SshSession>(new SshSession)));
+        //SshSessions.insert({next_id, std::unique_ptr<SshSession>(new SshSession(next_id, player, arguments, this))});
+        SshSessions.emplace(std::make_pair(next_id, std::unique_ptr<SshSession>(new SshSession(next_id, player, arguments, this))));
+        
     }
-};
-
-class SshSession {
-
-};
-
-class DelayedSshSesion : public SshSession {
-
 };
 
 void telnet_listen(int telnet_sock) {
