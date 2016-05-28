@@ -227,6 +227,7 @@ private:
 
         }
         else if (boost::regex_match(command, match, start_regex)) {
+            // TODO filtrowanie - jako pliku
             start_ssh_session(match[1], match[2]);
         }
         else if (boost::regex_match(command, match, at_regex)) {

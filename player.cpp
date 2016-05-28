@@ -76,7 +76,7 @@ public:
                         fatal("connection broken");
                     }
                     metalen = static_cast<int>(buffer[0]) * 16;
-                    cerr << "len" << metalen << endl;
+                    cerr << "len " << buffer[0] << ' ' << metalen << endl;
 //                    int a;
 //                    cin>>a;
                     if (metalen == 0) state = audio;
