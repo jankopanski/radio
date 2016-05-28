@@ -1,6 +1,7 @@
 #include <iostream>
 #include <thread>
 #include <netdb.h>
+#include <sys/socket.h>
 #include <boost/regex.hpp>
 #include <boost/lexical_cast.hpp>
 #include "err.h"
@@ -63,6 +64,15 @@ class TelnetSession {
 public:
     TelnetSession(int telnetsock) : sock(telnetsock) { }
 
+    void send(std::string message) {
+        ssize_t rc;
+        rc = write(sock, message.c_str(), message.size());
+        if (rc < 0) {
+            perror("TelnetSession send write");
+            throw ConnectionClosed();
+        }
+    }
+
     // TODO read, parse, process
     // sensowne wczytywanie danych
     // to chyba jest ok
@@ -88,7 +98,7 @@ public:
                 buffer[BUFFER_SIZE] = 0;
                 len = 0;
                 fprintf(stderr, "Telnet buffer exceeded, invalid command:\n%s\n", buffer);
-                send("ERROR: buffer exceeded, invalid command");
+                send("ERROR: Buffer exceeded, invalid command\r\n");
                 // TODO wypisywanie błędów do sesji telnet
             }
             else if (buffer[len] == '\r') {
@@ -110,15 +120,6 @@ public:
 //        cerr<<len<<endl;
     }
 
-    void send(std::string message) {
-        ssize_t rc;
-        rc = write(sock, message.c_str(), message.size());
-        if (rc < 0) {
-            perror("TelnetSession send write");
-            throw ConnectionClosed();
-        }
-    }
-
     class ConnectionClosed: public std::exception
     {
     public:
@@ -136,15 +137,15 @@ private:
     void parse_command(char *command) {
         //cerr<<command<<endl;
         // START komputer host path r-port file m-port md
-        static const boost::regex start_regex("START +(\\S+) +((?:\\S+) +(?:\\S+) +(?:\\d+) +(?:\\S+) +(?:\\d+) +(?:yes|no))");
+        static const boost::regex start_regex("START +(\\S+) +((?:\\S+) +(?:\\S+) +(?:\\d+) +(?:\\S+) +(?:\\d+) +(?:yes|no))\\s*");
         // AT HH.MM M komputer host path r-port file m-port md
-        static const boost::regex at_regex("AT +(\\d{2}\\.\\d{2}) +(\\d) +(\\S+) +((?:\\S+) +(?:\\S+) +(?:\\d+) +(?:\\S+) +(?:\\d+) +(?:yes|no))");
+        static const boost::regex at_regex("AT +(\\d{2}\\.\\d{2}) +(\\d) +(\\S+) +((?:\\S+) +(?:\\S+) +(?:\\d+) +(?:\\S+) +(?:\\d+) +(?:yes|no))\\s*");
         // PAUSE | PLAY | QUIT  ID
-        static const boost::regex command_regex("(PAUSE|PLAY|QUIT) +(\\d+)");
+        static const boost::regex command_regex("(PAUSE|PLAY|QUIT) +(\\d+)\\s*");
         // TITLE ID
-        static const boost::regex title_regex("TITLE +(\\d+)");
+        static const boost::regex title_regex("TITLE +(\\d+)\\s*");
 
-        boost::cmatch match;
+        boost::cmatch match; // TODO podział na matche
         if (boost::regex_match(command, match, command_regex)) {
 
         }
@@ -152,14 +153,19 @@ private:
 
         }
         else if (boost::regex_match(command, match, start_regex)) {
-
+            start_ssh_session(match[1], match[2]);
         }
         else if (boost::regex_match(command, match, at_regex)) {
 
         }
         else {
-
+            fprintf(stderr, "Invalid command: %s\n", command);
+            send("ERROR: Invalid command\r\n");
         }
+    }
+
+    void start_ssh_session(std::string player, std::string arguments) {
+        //cerr<<player<<' '<<arguments<<endl;
     }
 };
 
@@ -178,7 +184,7 @@ void telnet_listen(int telnet_sock) {
         telnet.listen();
     }
     catch(TelnetSession::ConnectionClosed ex) {
-        fprintf(stderr, ex.what());
+        fprintf(stderr, "%s\n", ex.what());
     }
 }
 
