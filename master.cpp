@@ -126,6 +126,7 @@ public:
 
     void send(std::string message) {
         ssize_t rc;
+        message.append("\r\n");
         rc = write(sock, message.c_str(), message.size());
         if (rc < 0) {
             perror("TelnetSession send write");
@@ -158,7 +159,7 @@ public:
                 buffer[BUFFER_SIZE] = 0;
                 len = 0;
                 fprintf(stderr, "Telnet buffer exceeded, invalid command:\n%s\n", buffer);
-                send("ERROR: Buffer exceeded, invalid command\r\n");
+                send("ERROR: Buffer exceeded, invalid command");
                 // TODO wypisywanie błędów do sesji telnet
             }
             else if (buffer[len] == '\r') {
@@ -184,7 +185,7 @@ public:
         auto it = SshSessions.find(id);
         if (it != SshSessions.end()) {
             SshSessions.erase(it);
-            std::string s("Player " + std::to_string(id) + " finished with status " + std::to_string(status) + "\r\n");
+            std::string s("Player " + std::to_string(id) + " finished with status " + std::to_string(status));
             send(s);
         }
         else {
@@ -233,7 +234,7 @@ private:
         }
         else {
             fprintf(stderr, "Invalid command: %s\n", command);
-            send("ERROR: Invalid command\r\n");
+            send("ERROR: Invalid command");
         }
     }
 
@@ -244,7 +245,7 @@ private:
         }
         catch(SshSession::SshException &ex) {
             fprintf(stderr, "%s\n", ex.what());
-            send("ERROR: START " + player + "\r\n");
+            send("ERROR: START " + player);
             return;
         }
         //SshSessions.emplace(std::make_pair(next_id, ssh));
@@ -252,7 +253,7 @@ private:
         //std::thread(telnet_listen, telnet_sock).detach();
         std::thread(ssh_exit, ssh).detach();
         // TODO exception o thread
-        send("OK " + next_id);
+        send("OK " + std::to_string(next_id));
         ++next_id;
         //cerr<<player<< endl <<arguments<<endl;
         //SshSessions.emplace(std::make_pair(next_id, std::unique_ptr<SshSession>(new SshSession)));
