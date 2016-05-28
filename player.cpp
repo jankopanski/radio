@@ -8,6 +8,8 @@
 #include <boost/lexical_cast.hpp>
 #include "err.h"
 
+// TODO czas oczekiwania 5s od radia - dodać
+
 // ./player stream3.polskieradio.pl / 8900 - 10000 no
 // ./player stream3.polskieradio.pl / 8900 - 10000 no | mplayer -
 // ./player stream3.polskieradio.pl / 8900 - 10000 no | mplayer -cache 1024 -
@@ -52,7 +54,7 @@ public:
                         syserr("process read");
                     }
                     else if (readlen == 0) {
-                        fatal("connection broken");
+                        quit(out);
                     }
                     if (active) {
                         writelen = write(out, buffer, (size_t) readlen);
@@ -73,7 +75,7 @@ public:
                         syserr("process read");
                     }
                     else if (readlen == 0) {
-                        fatal("connection broken");
+                        quit(out);
                     }
                     metalen = static_cast<int>(buffer[0]) * 16;
                     cerr << "len " << buffer[0] << ' ' << metalen << endl;
@@ -89,7 +91,7 @@ public:
                         syserr("process read");
                     }
                     else if (readlen == 0) {
-                        fatal("connection broken");
+                        quit(out);
                     }
                     metaread += readlen;
                     if (metaread == metalen) {
@@ -113,7 +115,7 @@ public:
                 syserr("process read");
             }
             else if (readlen == 0) {
-                fatal("connection broken");
+                quit(out);
             }
             if (active) {
                 writelen = write(out, buffer, (size_t) readlen);
@@ -156,7 +158,7 @@ private:
     ssize_t writelen;
     char *buffer;
     std::string title_ = "";
-    const boost::regex title_regex{"StreamTitle='([^';]*)';"};
+    const boost::regex title_regex{"StreamTitle='([^;]*)';"};
 };
 
 int initialize_radio_socket(const char *host, const char *r_port) {
