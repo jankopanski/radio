@@ -3,17 +3,16 @@
 #include <thread>
 #include <netdb.h>
 #include <sys/socket.h>
-//#include <libssh/libssh.h>
 #include <boost/regex.hpp>
 #include <boost/lexical_cast.hpp>
 #include "err.h"
 
 using namespace std;
 
-class SshSession;
+class PlayerSession;
 class TelnetSession;
 void telnet_listen(int);
-void ssh_exit(shared_ptr<SshSession>);
+void ssh_exit(shared_ptr<PlayerSession>);
 
 // TODO sensowna obsługa wyjątków
 class SocketListener {
@@ -65,38 +64,51 @@ private:
     //set<std::shared_ptr<TelnetSession>> TelnetSessions;
 };
 
-class SshSession {
+class PlayerSession {
 public:
-    SshSession(int id, TelnetSession *telnet_session) : id(id), master(telnet_session) { }
+    PlayerSession(int id, TelnetSession *telnet_session) : id(id), telnet(telnet_session) { }
 
-    void start(std::string player, std::string arguments) {
-//        int rc;
-//        session = ssh_new();
-//        // TODO ssh_free(session)
-//        // ssh_disconnect
-//        if (session == NULL) throw SshException("start ssh_new " + player);
-//        ssh_options_set(session, SSH_OPTIONS_HOST, player.c_str());
-//        rc = ssh_connect(session);
-//        if (rc != SSH_OK) throw SshException("start ssh_connect " + player);
-//        rc = ssh_userauth_publickey_auto(session, NULL, NULL);
-//        if (rc != SSH_AUTH_SUCCESS) throw SshException("start ssh_userauth_publickey_auto " + player);
-//        channel = ssh_channel_new(session);
-//        if (channel == NULL) throw SshException("start ssh_channel_new " + player);
-//        rc = ssh_channel_open_session(channel);
-//        if (rc != SSH_OK) throw SshException("start ssh_channel_open_session " + player);
-//        std::string command = "./player " + arguments;
-//        rc = ssh_channel_request_exec(channel, command.c_str());
-//        if (rc != SSH_OK) throw SshException("start ssh_channel_request_exec " + player);
+    void init_socket(std::string host, std::string port) {
+        int rc;
+        uint16_t port_int;
+        struct sockaddr_in addr;
+
+        sock = socket(AF_INET, SOCK_DGRAM, 0);
+        if (sock < 0) throw PlayerException("init_socket socket " + host);
+
+        if (boost::regex_match(port, boost::regex("\\d+"))) {
+            port_int = boost::lexical_cast<uint16_t >(port);
+            if (port_int < 1024 || port_int > 65535)
+                throw PlayerException("invalid port number: " + port + " for " + host);
+        }
+        else {
+            throw PlayerException("invalid port number: " + port + " for " + host);
+        }
+
+        struct addrinfo addr_hints;
+        struct addrinfo *addr_result;
+        memset(&addr_hints, 0, sizeof(struct addrinfo));
+        addr_hints.ai_family = AF_INET;
+        addr_hints.ai_socktype = SOCK_DGRAM;
+        addr_hints.ai_protocol = IPPROTO_UDP;
+        rc = getaddrinfo(host.c_str(), NULL, &addr_hints, &addr_result);
+        if (rc == EAI_SYSTEM)
+            throw PlayerException("getaddrinfo: " + std::string(gai_strerror(rc)));
+        else if (rc != 0)
+            throw PlayerException("getaddrinfo: " + std::string(gai_strerror(rc)));
+
+        addr.sin_family = AF_INET;
+        addr.sin_addr.s_addr = ((struct sockaddr_in*) (addr_result->ai_addr))->sin_addr.s_addr;
+        addr.sin_port = htons(port_int);
+
+        freeaddrinfo(addr_result);
     }
 
-    friend void ssh_exit(shared_ptr<SshSession>);
+    friend void ssh_exit(shared_ptr<PlayerSession>);
 
-//    SshSession(int id, std::string player, std::string arguments, TelnetSession *telnetSession) : id(id), master(telnetSession) {
-//
-//    }
-    class SshException: public std::exception {
+    class PlayerException: public std::exception {
     public:
-        SshException(std::string s) : message(s) { }
+        PlayerException(std::string s) : message(s) { }
         virtual const char* what() const throw() {
             return message.c_str();
         }
@@ -106,14 +118,13 @@ public:
 
 private:
     int id;
-//    ssh_session session;
-//    ssh_channel channel;
-    shared_ptr<TelnetSession> master;
+    int sock;
+    shared_ptr<TelnetSession> telnet;
 };
 
-class DelayedSshSesion : public SshSession {
+class DelayedPlayerSession : public PlayerSession {
 public:
-    DelayedSshSesion(int id, TelnetSession *telnet_session) : SshSession(id, telnet_session) { }
+    DelayedPlayerSession(int id, TelnetSession *telnet_session) : PlayerSession(id, telnet_session) { }
 };
 
 class TelnetSession {
@@ -172,15 +183,12 @@ public:
                 ++len;
             }
         }
-//        char buffer[1024];
-//        ssize_t len = read(sock, buffer, sizeof(buffer));
-//        cerr<<len<<endl;
     }
 
     void finish(int id, int status) {
-        auto it = SshSessions.find(id);
-        if (it != SshSessions.end()) {
-            SshSessions.erase(it);
+        auto it = PlayerSessions.find(id);
+        if (it != PlayerSessions.end()) {
+            PlayerSessions.erase(it);
             std::string s("Player " + std::to_string(id) + " finished with status " + std::to_string(status));
             send(s);
         }
@@ -202,14 +210,14 @@ private:
     static const ConnectionClosed ex;
     int sock;
     int next_id = 1;
-    std::unordered_map<int, shared_ptr<SshSession>> SshSessions;
+    std::unordered_map<int, shared_ptr<PlayerSession>> PlayerSessions;
 
     void parse_command(char *command) {
         //cerr<<command<<endl;
         // START komputer host path r-port file m-port md
-        static const boost::regex start_regex("START +(\\S+) +(\\S+ +\\S+ +\\d+ +\\S+ +\\d+ +(?:yes|no))\\s*");
+        static const boost::regex start_regex("START +(\\S+) +(\\S+ +\\S+ +\\d+ +\\S+ +(\\d+) +(?:yes|no))\\s*");
         // AT HH.MM M komputer host path r-port file m-port md
-        static const boost::regex at_regex("AT +(\\d{2}\\.\\d{2}) +(\\d) +(\\S+) +(\\S+ +\\S+ +\\d+ +\\S+ +\\d+ +(?:yes|no))\\s*");
+        static const boost::regex at_regex("AT +(\\d{2}\\.\\d{2}) +(\\d) +(\\S+) +(\\S+ +\\S+ +\\d+ +\\S+ +(\\d+) +(?:yes|no))\\s*");
         // PAUSE | PLAY | QUIT  ID
         static const boost::regex command_regex("(PAUSE|PLAY|QUIT) +(\\d+)\\s*");
         // TITLE ID
@@ -223,7 +231,7 @@ private:
 
         }
         else if (boost::regex_match(command, match, start_regex)) {
-            // TODO filtrowanie - jako pliku
+            // TODO filtrowanie '-' jako pliku
             start_ssh_session(match[1], match[2]);
         }
         else if (boost::regex_match(command, match, at_regex)) {
@@ -236,26 +244,26 @@ private:
     }
 
     void start_ssh_session(std::string player, std::string arguments) {
-        std::shared_ptr<SshSession> ssh(new SshSession(next_id, this));
+        std::shared_ptr<PlayerSession> ssh(new PlayerSession(next_id, this));
         try {
             ssh->start(player, arguments);
         }
-        catch(SshSession::SshException &ex) {
+        catch(PlayerSession::SshException &ex) {
             fprintf(stderr, "%s\n", ex.what());
             send("ERROR: START " + player);
             return;
         }
-        //SshSessions.emplace(std::make_pair(next_id, ssh));
-        SshSessions.insert(std::make_pair(next_id, ssh));
+        //PlayerSessions.emplace(std::make_pair(next_id, ssh));
+        PlayerSessions.insert(std::make_pair(next_id, ssh));
         //std::thread(telnet_listen, telnet_sock).detach();
         std::thread(ssh_exit, ssh).detach();
         // TODO exception o thread
         send("OK " + std::to_string(next_id));
         ++next_id;
         //cerr<<player<< endl <<arguments<<endl;
-        //SshSessions.emplace(std::make_pair(next_id, std::unique_ptr<SshSession>(new SshSession)));
-        //SshSessions.insert({next_id, std::unique_ptr<SshSession>(new SshSession(next_id, player, arguments, this))});
-        //SshSessions.emplace(std::make_pair(next_id, std::unique_ptr<SshSession>(new SshSession(next_id, player, arguments, this))));
+        //PlayerSessions.emplace(std::make_pair(next_id, std::unique_ptr<PlayerSession>(new PlayerSession)));
+        //PlayerSessions.insert({next_id, std::unique_ptr<PlayerSession>(new PlayerSession(next_id, player, arguments, this))});
+        //PlayerSessions.emplace(std::make_pair(next_id, std::unique_ptr<PlayerSession>(new PlayerSession(next_id, player, arguments, this))));
     }
 };
 
@@ -270,7 +278,7 @@ void telnet_listen(int telnet_sock) {
     }
 }
 
-void ssh_exit(shared_ptr<SshSession> session) {
+void ssh_exit(shared_ptr<PlayerSession> session) {
 //    int status = ssh_channel_get_exit_status(session->channel);
 //    session->master->finish(session->id, status);
 }
