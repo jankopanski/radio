@@ -237,7 +237,7 @@ private:
 
         }
         else if (boost::regex_match(command, match, start_regex)) {
-            cerr<<match[1]<<endl<<match[2]<<endl<<match[3]<<endl;
+            //cerr<<match[1]<<endl<<match[2]<<endl<<match[3]<<endl;
             // TODO filtrowanie '-' jako pliku
             start_ssh_session(match[1], match[3], match[2]);
         }
@@ -287,17 +287,20 @@ void telnet_listen(int telnet_sock) {
 
 void player_launch(shared_ptr<PlayerSession> session, std::string host, std::string arguments) {
     // TODO zmienić na player
+    // ' EXIT STATUS $? '
     std::string command("ssh " + host + " './ClionProjects/radio/player " + arguments + "; echo $?'");
     FILE *fpipe = (FILE *) popen(command.c_str(), "r");
-    if (fpipe == NULL) // TODO obsługa błędów
-    {  // If fpipe is NULL
+    if (fpipe == NULL) {
         perror("Problems with pipe");
-        exit(1);
     }
-    char ret[256];
-    fgets(ret, sizeof(ret), fpipe);
-    printf("%s\n", ret);
-    pclose(fpipe);
+    else {
+        char ret[256];
+        fgets(ret, sizeof(ret), fpipe);
+        //fprintf(stderr, "%s\n", ret);
+        //cerr << "exit status" << ret << endl;
+        session->telnet->send("EXIT STATUS: " + std::string(ret));
+        pclose(fpipe);
+    }
 }
 
 //void ssh_exit(shared_ptr<PlayerSession> session) {

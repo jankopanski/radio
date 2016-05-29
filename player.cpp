@@ -48,7 +48,7 @@ public:
             switch (state) {
                 case audio:
                     readlen = read(in, buffer, (size_t) min(audiolen - audioread, buffer_size));
-                    cerr << "audio" << readlen << ' ' << audioread << endl;
+                    //cerr << "audio" << readlen << ' ' << audioread << endl;
                     if (readlen < 0) {
                         syserr("process read");
                     }
@@ -69,7 +69,7 @@ public:
                     break;
                 case byte:
                     readlen = read(in, buffer, 1);
-                    cerr << "byte" << readlen << endl;
+                    //cerr << "byte" << readlen << endl;
                     if (readlen < 0) {
                         syserr("process read");
                     }
@@ -77,7 +77,7 @@ public:
                         quit(out);
                     }
                     metalen = static_cast<int>(buffer[0]) * 16;
-                    cerr << "len " << buffer[0] << ' ' << metalen << endl;
+                    //cerr << "len " << buffer[0] << ' ' << metalen << endl;
 //                    int a;
 //                    cin>>a;
                     if (metalen == 0) state = audio;
@@ -85,7 +85,7 @@ public:
                     break;
                 case meta:
                     readlen = read(in, buffer + metaread, (size_t) (metalen - metaread));
-                    cerr << "meta" << readlen << ' ' << metaread << endl;
+                    //cerr << "meta" << readlen << ' ' << metaread << endl;
                     if (readlen < 0) {
                         syserr("process read");
                     }
@@ -100,8 +100,8 @@ public:
                         title_ = what[1];
                         metaread = 0;
                         state = audio;
-                        cerr << "Metadane: " << buffer << endl;
-                        cerr<<title_<<endl;
+                        //cerr << "Metadane: " << buffer << endl;
+                        //cerr<<title_<<endl;
                     }
                     break;
                 default:
@@ -272,7 +272,7 @@ int receive_get_request(const int sock, const bool metadata) {
     else {
         header = boost::regex("(?:ICY|HTTP/1.0|HTTP/1.1) (\\d{3}).*\r\n.*");
     }
-    cerr << buffer << endl;
+    //cerr << buffer << endl;
     if (!boost::regex_match(buffer, match, header)) {
         fatal("get response %s", buffer);
     }
@@ -312,7 +312,7 @@ void process_command(int sock, int out, Radio &radio) {
         }
         else if (strcmp(buffer, "TITLE") == 0) {
             std::string title = radio.title();
-            cerr << "Title: " << title << endl;
+            //cerr << "Title: " << title << endl;
             ssize_t sendlen = sendto(sock, title.c_str(), title.size(), 0, (struct sockaddr *) &addr, addrlen);
             if (sendlen < 0) {
                 syserr("process_command sendto");
