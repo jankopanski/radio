@@ -15,7 +15,7 @@ using namespace std;
 class PlayerSession;
 class TelnetSession;
 void telnet_listen(int);
-void player_launch(shared_ptr<PlayerSession>, std::string, std::string);
+void player_launch(TelnetSession*, int, std::string, std::string);
 
 // TODO sensowna obsługa wyjątków
 class SocketListener {
@@ -69,7 +69,7 @@ private:
 
 class PlayerSession {
 public:
-    PlayerSession(int id, TelnetSession *telnet_session) : id(id), telnet(telnet_session) { }
+    PlayerSession(int id) : id(id) { }
 
     void init_socket(std::string host, std::string port) {
         // TODO usunąć
@@ -109,16 +109,16 @@ public:
         freeaddrinfo(addr_result);
     }
 
-    void PlayerSession::send_command(std::string command) {
-        ssize_t len = sendto(sock, command.c_str(), command.size(), 0, (sockaddr *) &addr, sizeof(struct sockaddr_in));
-        if (len < 0) {
-            perror("sendto: send command to player");
-            //telnet->send("ERROR " + std::to_string(id) + " " + command);
-            // TODO bug there up
-        }
-    }
+//    void PlayerSession::send_command(std::string command) {
+//        ssize_t len = sendto(sock, command.c_str(), command.size(), 0, (sockaddr *) &addr, sizeof(struct sockaddr_in));
+//        if (len < 0) {
+//            perror("sendto: send command to player");
+//            //telnet->send("ERROR " + std::to_string(id) + " " + command);
+//            // TODO bug there up
+//        }
+//    }
 
-    friend void player_launch(shared_ptr<PlayerSession>, std::string, std::string);
+    //friend void player_launch(shared_ptr<TelnetSession>, std::string, std::string);
 
     class PlayerException: public std::exception {
     public:
@@ -134,12 +134,11 @@ private:
     int id;
     int sock;
     struct sockaddr_in addr;
-    shared_ptr<TelnetSession> telnet;
 };
 
 class DelayedPlayerSession : public PlayerSession {
 public:
-    DelayedPlayerSession(int id, TelnetSession *telnet_session) : PlayerSession(id, telnet_session) { }
+    DelayedPlayerSession(int id) : PlayerSession(id) { }
 };
 
 class TelnetSession {
@@ -264,7 +263,7 @@ private:
     }
 
     void start_ssh_session(std::string host, std::string port, std::string arguments) {
-        std::shared_ptr<PlayerSession> player(new PlayerSession(next_id, this));
+        std::shared_ptr<PlayerSession> player(new PlayerSession(next_id));
         try {
             player->init_socket(host, port);
         }
@@ -276,7 +275,7 @@ private:
         //PlayerSessions.emplace(std::make_pair(next_id, ssh));
         PlayerSessions.insert(std::make_pair(next_id, player));
         //std::thread(telnet_listen, telnet_sock).detach();
-        std::thread(player_launch, player, host, arguments).detach();
+        std::thread(player_launch, this, next_id, host, arguments).detach();
         // TODO exception do thread
         send("OK " + std::to_string(next_id));
         ++next_id;
@@ -298,7 +297,7 @@ void telnet_listen(int telnet_sock) {
     }
 }
 
-void player_launch(shared_ptr<PlayerSession> session, std::string host, std::string arguments) {
+void player_launch(TelnetSession *telnet_session, int id, std::string host, std::string arguments) {
     // TODO zmienić na player
     // ' EXIT STATUS $? '
     std::string command("ssh " + host + " './ClionProjects/radio/player " + arguments + "; echo $?'");
@@ -308,10 +307,16 @@ void player_launch(shared_ptr<PlayerSession> session, std::string host, std::str
     }
     else {
         char ret[256];
-        fgets(ret, sizeof(ret), fpipe);
+        if (fgets(ret, sizeof(ret), fpipe)) {
+            // TODO lepsza obróbka statusu
+            //telnet_session->finish(id, std::string(ret));
+        }
+        else {
+            perror("reading status from player");
+        }
         //fprintf(stderr, "%s\n", ret);
         //cerr << "exit status" << ret << endl;
-        session->telnet->send("EXIT STATUS: " + std::string(ret));
+        //telnet_session->send("EXIT STATUS: " + std::string(ret));
         pclose(fpipe);
     }
 }
