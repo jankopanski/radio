@@ -113,7 +113,8 @@ public:
         ssize_t len = sendto(sock, command.c_str(), command.size(), 0, (sockaddr *) &addr, sizeof(struct sockaddr_in));
         if (len < 0) {
             perror("sendto: send command to player");
-            telnet->send("ERROR " + std::to_string(id) + " " + command); // TODO bug
+            //telnet->send("ERROR " + std::to_string(id) + " " + command);
+            // TODO bug there up
         }
     }
 
@@ -221,7 +222,6 @@ public:
 
 private:
     static const int BUFFER_SIZE = 1024;
-    static const ConnectionClosed ex;
     int sock;
     int next_id = 1;
     std::unordered_map<int, shared_ptr<PlayerSession>> PlayerSessions;
