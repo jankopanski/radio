@@ -109,6 +109,14 @@ public:
         freeaddrinfo(addr_result);
     }
 
+    void PlayerSession::send_command(std::string command) {
+        ssize_t len = sendto(sock, command.c_str(), command.size(), 0, (sockaddr *) &addr, sizeof(struct sockaddr_in));
+        if (len < 0) {
+            perror("sendto: send command to player");
+            telnet->send("ERROR " + std::to_string(id) + " " + command); // TODO bug
+        }
+    }
+
     friend void player_launch(shared_ptr<PlayerSession>, std::string, std::string);
 
     class PlayerException: public std::exception {
@@ -238,11 +246,16 @@ private:
         }
         else if (boost::regex_match(command, match, start_regex)) {
             //cerr<<match[1]<<endl<<match[2]<<endl<<match[3]<<endl;
-            // TODO filtrowanie '-' jako pliku
-            start_ssh_session(match[1], match[3], match[2]);
+            if (match[3] == "-") {
+                fprintf(stderr, "Invalid command: %s\n", command);
+                send("ERROR: Invalid command");
+            }
+            else {
+                start_ssh_session(match[1], match[4], match[2]);
+            }
         }
         else if (boost::regex_match(command, match, at_regex)) {
-
+            // TODO file '-'
         }
         else {
             fprintf(stderr, "Invalid command: %s\n", command);
