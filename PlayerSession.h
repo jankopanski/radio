@@ -6,6 +6,9 @@
 #define RADIO_PLAYERSESSION_H
 
 #include <memory>
+#include <netdb.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #include "TelnetSession.h"
 
 class PlayerSession {
