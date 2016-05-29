@@ -11,7 +11,7 @@ find_package (Boost COMPONENTS REQUIRED regex)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
-set(SOURCE_FILES player.cpp err.c)
+set(SOURCE_FILES player.cpp err.cpp)
 add_executable(radio ${SOURCE_FILES})
 
 target_link_libraries (radio ${Boost_LIBRARIES})

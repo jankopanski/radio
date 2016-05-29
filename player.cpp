@@ -32,6 +32,7 @@ public:
     Radio(int r_sock, int outfd, int metaint, bool metadata) : in(r_sock), out(outfd), audiolen(metaint),
                                                                metadata(metadata) {
         buffer_size = metadata ? min(max(audiolen, 4080) + 1, MAX_BUFFER_SIZE) : MAX_BUFFER_SIZE; // TODO statyczny buffer
+        //buffer_size = 42;
         buffer = (char *) malloc((size_t) buffer_size);
         if (buffer == NULL) {
             syserr("Radio malloc");
@@ -146,7 +147,8 @@ private:
     const int in;
     const int out;
     const int audiolen;
-    const static int MAX_BUFFER_SIZE = 8192;
+    //const static int MAX_BUFFER_SIZE = 8192;
+    const int MAX_BUFFER_SIZE = 8192;
     const bool metadata;
     int metalen = 0;
     int audioread = 0;
