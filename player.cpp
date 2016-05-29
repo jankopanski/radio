@@ -303,7 +303,7 @@ void process_command(int sock, int out, Radio &radio) {
         else if (strcmp(buffer, "QUIT") == 0) {
             quit(out);
         }
-        else fprintf(stderr, "invalid command: %s", buffer);
+        else fprintf(stderr, "invalid command: %s\n", buffer);
     }
     else if (recvlen == 5) {
         buffer[5] = 0;
@@ -318,9 +318,9 @@ void process_command(int sock, int out, Radio &radio) {
                 syserr("process_command sendto");
             }
         }
-        else fprintf(stderr, "invalid command: %s", buffer);
+        else fprintf(stderr, "invalid command: %s\n", buffer);
     }
-    else fprintf(stderr, "invalid command: %s", buffer);
+    else fprintf(stderr, "invalid command: %s\n", buffer);
 }
 
 int main(int argc, char *argv[]) {

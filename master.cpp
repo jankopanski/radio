@@ -9,6 +9,7 @@
 
 // START jk359785@students.mimuw.edu.pl ant-waw-01.cdn.eurozet.pl / 8602 test5.mp3 50000 yes
 // START localhost ant-waw-01.cdn.eurozet.pl / 8602 test5.mp3 50000 yes
+// rlwrap telnet localhost 37479
 
 using namespace std;
 
@@ -69,11 +70,14 @@ private:
 
 class PlayerSession {
 public:
+    int id;
+    int sock;
+    struct sockaddr_in addr;
+
     PlayerSession(int id) : id(id) { }
 
     void init_socket(std::string host, std::string port) {
-        // TODO usunąć
-        //host = "localhost";
+        cerr<<"init_socket "<<host<<' '<<port<<endl;
 
         int rc;
         uint16_t port_int;
@@ -89,6 +93,8 @@ public:
         else {
             throw PlayerException("invalid port number: " + port + " for " + host);
         }
+
+        cerr<<"init_socket port_int "<<port_int<<endl;
 
         struct addrinfo addr_hints;
         struct addrinfo *addr_result;
@@ -107,6 +113,8 @@ public:
         addr.sin_port = htons(port_int);
 
         freeaddrinfo(addr_result);
+
+        cerr<<addr.sin_addr.s_addr<<' '<<addr.sin_port<<endl;
     }
 
 //    void PlayerSession::send_command(std::string command) {
@@ -129,11 +137,6 @@ public:
     private:
         std::string message;
     };
-
-private:
-    int id;
-    int sock;
-    struct sockaddr_in addr;
 };
 
 class DelayedPlayerSession : public PlayerSession {
@@ -145,7 +148,7 @@ class TelnetSession {
 public:
     TelnetSession(int telnetsock) : sock(telnetsock) { }
 
-    void send(std::string message) {
+    void send_back(std::string message) {
         ssize_t rc;
         message.append("\r\n");
         rc = write(sock, message.c_str(), message.size());
@@ -180,8 +183,7 @@ public:
                 buffer[BUFFER_SIZE] = 0;
                 len = 0;
                 fprintf(stderr, "Telnet buffer exceeded, invalid command:\n%s\n", buffer);
-                send("ERROR: Buffer exceeded, invalid command");
-                // TODO wypisywanie błędów do sesji telnet
+                send_back("ERROR: Buffer exceeded, invalid command");
             }
             else if (buffer[len] == '\r') {
                 cr = true;
@@ -206,7 +208,7 @@ public:
             std::string s;
             if (status == "0") s = "Player " + std::to_string(id) + " finished with status " + status;
             else s = "ERROR: Player " + std::to_string(id) + " finished with status " + status + " " + error_message;
-            send(s);
+            send_back(s);
         }
         else {
             fprintf(stderr, "Player session id: %d, status: %s can not be finished\n", id, status.c_str());
@@ -229,6 +231,7 @@ private:
 
     void parse_command(char *command) {
         //cerr<<command<<endl;
+        // TODO filtracja sekwencji znakowych
         // START komputer host path r-port file m-port md
         static const boost::regex start_regex("START +(\\S+) +(\\S+ +\\S+ +\\d+ +(\\S+) +(\\d+) +(?:yes|no))\\s*");
         // AT HH.MM M komputer host path r-port file m-port md
@@ -240,7 +243,8 @@ private:
 
         boost::cmatch match; // TODO podział na matche
         if (boost::regex_match(command, match, command_regex)) {
-
+            cerr<<"parse_command "<<match[1]<<' '<<match[2]<<endl;
+            send_command(match[1], match[2]);
         }
         else if (boost::regex_match(command, match, title_regex)) {
 
@@ -249,7 +253,7 @@ private:
             //cerr<<match[1]<<endl<<match[2]<<endl<<match[3]<<endl;
             if (match[3] == "-") {
                 fprintf(stderr, "Invalid command: %s\n", command);
-                send("ERROR: Invalid command");
+                send_back("ERROR: Invalid command");
             }
             else {
                 start_ssh_session(match[1], match[4], match[2]);
@@ -260,7 +264,7 @@ private:
         }
         else {
             fprintf(stderr, "Invalid command: %s\n", command);
-            send("ERROR: Invalid command");
+            send_back("ERROR: Invalid command");
         }
     }
 
@@ -271,20 +275,35 @@ private:
         }
         catch(PlayerSession::PlayerException &ex) {
             fprintf(stderr, "%s\n", ex.what());
-            send("ERROR: START " + host);
+            send_back("ERROR: START " + host);
             return;
         }
-        //PlayerSessions.emplace(std::make_pair(next_id, ssh));
         PlayerSessions.insert(std::make_pair(next_id, player));
-        //std::thread(telnet_listen, telnet_sock).detach();
         std::thread(player_launch, this, next_id, host, arguments).detach();
         // TODO exception do thread
-        send("OK " + std::to_string(next_id));
+        send_back("OK " + std::to_string(next_id));
         ++next_id;
-        //cerr<<player<< endl <<arguments<<endl;
-        //PlayerSessions.emplace(std::make_pair(next_id, std::unique_ptr<PlayerSession>(new PlayerSession)));
-        //PlayerSessions.insert({next_id, std::unique_ptr<PlayerSession>(new PlayerSession(next_id, player, arguments, this))});
-        //PlayerSessions.emplace(std::make_pair(next_id, std::unique_ptr<PlayerSession>(new PlayerSession(next_id, player, arguments, this))));
+    }
+
+    void send_command(std::string command, std::string id_str) {
+        int id = boost::lexical_cast<int>(id_str);
+        auto it = PlayerSessions.find(id);
+        if (it == PlayerSessions.end()) {
+            send_back("ERROR: Player " + id_str + " not found");
+        }
+        else {
+            // TODO odsyłam sam sobie
+            cerr<<command<<endl;
+            cerr<<sock<<' '<<it->second->addr.sin_addr.s_addr<<' '<<it->second->addr.sin_port<<endl;
+            ssize_t len = sendto(sock, command.c_str(), command.size(), 0, (sockaddr *) &(it->second->addr), sizeof(struct sockaddr_in));
+            if (len < 0) {
+                send_back("ERROR: Player " + id_str + " command not sent");
+                perror("sendto: send command to player");
+            }
+            else {
+                send_back("OK " + id_str);
+            }
+        }
     }
 };
 
@@ -312,8 +331,8 @@ void player_launch(TelnetSession *telnet_session, int id, std::string host, std:
         if (fgets(ret, sizeof(ret), fpipe)) {
             // TODO lepsza obróbka statusu
             fprintf(stderr, "%s\n", ret);
-            std::string status = "42";
-            std::string error_message = "ala ma kota";
+            std::string status = "42"; // TODO zaślepka
+            std::string error_message = std::string(ret);
             telnet_session->finish(id, status, error_message);
         }
         else {
