@@ -8,8 +8,6 @@
 #include <boost/lexical_cast.hpp>
 #include "err.h"
 
-// TODO czas oczekiwania 5s od radia - dodać
-
 // ./player stream3.polskieradio.pl / 8900 - 10000 no
 // ./player stream3.polskieradio.pl / 8900 - 10000 no | mplayer -
 // ./player stream3.polskieradio.pl / 8900 - 10000 no | mplayer -cache 1024 -
