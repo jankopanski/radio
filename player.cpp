@@ -292,6 +292,10 @@ void process_command(int sock, int out, Radio &radio) {
     struct sockaddr_in addr;
     socklen_t addrlen = sizeof(struct sockaddr_in);
     recvlen = recvfrom(sock, buffer, 6, 0, (struct sockaddr *) &addr, &addrlen);
+
+    // TODO
+    //exit(11);
+
     if (recvlen < 0) {
         syserr("process_command recvfrom");
     }
@@ -359,6 +363,9 @@ int main(int argc, char *argv[]) {
     polls[1].fd = m_sock;
     polls[0].events = polls[1].events = POLLIN;
 
+    //TODO
+    //exit(13);
+
     for (; ;) {
         polls[0].revents = polls[1].revents = 0;
         if (poll(polls, 2, TIME) < 0) {
@@ -368,6 +375,8 @@ int main(int argc, char *argv[]) {
             radio.process();
         }
         if (polls[1].revents == POLLIN) {
+            // TODO
+            //exit(12);
             process_command(m_sock, outfd, radio);
         }
     }

@@ -82,7 +82,7 @@ public:
         int rc;
         uint16_t port_int;
 
-        sock = socket(AF_INET, SOCK_DGRAM, 0);
+        //sock = socket(AF_INET, SOCK_DGRAM, 0);
         if (sock < 0) throw PlayerException("init_socket socket " + host);
 
         if (boost::regex_match(port, boost::regex("\\d+"))) {
@@ -112,9 +112,12 @@ public:
         addr.sin_addr.s_addr = ((struct sockaddr_in*) (addr_result->ai_addr))->sin_addr.s_addr;
         addr.sin_port = htons(port_int);
 
+        sock = socket(addr_result->ai_family, addr_result->ai_socktype, addr_result->ai_protocol);
+
         freeaddrinfo(addr_result);
 
         cerr<<addr.sin_addr.s_addr<<' '<<addr.sin_port<<endl;
+        //sendto(sock, "ala ma kota", 11, 0, (sockaddr *) &addr, sizeof(addr));
     }
 
 //    void PlayerSession::send_command(std::string command) {
@@ -294,8 +297,8 @@ private:
         else {
             // TODO odsyłam sam sobie
             cerr<<command<<endl;
-            cerr<<sock<<' '<<it->second->addr.sin_addr.s_addr<<' '<<it->second->addr.sin_port<<endl;
-            ssize_t len = sendto(sock, command.c_str(), command.size(), 0, (sockaddr *) &(it->second->addr), sizeof(struct sockaddr_in));
+            cerr<<sock<<' '<<it->second->addr.sin_addr.s_addr<<' '<<it->second->addr.sin_port<<' '<<ntohs(it->second->addr.sin_port)<<endl;
+            ssize_t len = sendto(it->second->sock, command.c_str(), command.size(), 0, (sockaddr *) &(it->second->addr), sizeof(struct sockaddr_in));
             if (len < 0) {
                 send_back("ERROR: Player " + id_str + " command not sent");
                 perror("sendto: send command to player");
