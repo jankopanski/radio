@@ -7,12 +7,15 @@
 #include <boost/lexical_cast.hpp>
 #include "err.h"
 
+// START jk359785@students.mimuw.edu.pl ant-waw-01.cdn.eurozet.pl / 8602 test5.mp3 50000 yes
+// START localhost ant-waw-01.cdn.eurozet.pl / 8602 test5.mp3 50000 yes
+
 using namespace std;
 
 class PlayerSession;
 class TelnetSession;
 void telnet_listen(int);
-void ssh_exit(shared_ptr<PlayerSession>);
+void player_launch(shared_ptr<PlayerSession>, std::string, std::string);
 
 // TODO sensowna obsługa wyjątków
 class SocketListener {
@@ -69,9 +72,11 @@ public:
     PlayerSession(int id, TelnetSession *telnet_session) : id(id), telnet(telnet_session) { }
 
     void init_socket(std::string host, std::string port) {
+        // TODO usunąć
+        //host = "localhost";
+
         int rc;
         uint16_t port_int;
-        struct sockaddr_in addr;
 
         sock = socket(AF_INET, SOCK_DGRAM, 0);
         if (sock < 0) throw PlayerException("init_socket socket " + host);
@@ -104,7 +109,7 @@ public:
         freeaddrinfo(addr_result);
     }
 
-    friend void ssh_exit(shared_ptr<PlayerSession>);
+    friend void player_launch(shared_ptr<PlayerSession>, std::string, std::string);
 
     class PlayerException: public std::exception {
     public:
@@ -119,6 +124,7 @@ public:
 private:
     int id;
     int sock;
+    struct sockaddr_in addr;
     shared_ptr<TelnetSession> telnet;
 };
 
@@ -231,8 +237,9 @@ private:
 
         }
         else if (boost::regex_match(command, match, start_regex)) {
+            cerr<<match[1]<<endl<<match[2]<<endl<<match[3]<<endl;
             // TODO filtrowanie '-' jako pliku
-            start_ssh_session(match[1], match[2]);
+            start_ssh_session(match[1], match[3], match[2]);
         }
         else if (boost::regex_match(command, match, at_regex)) {
 
@@ -243,21 +250,21 @@ private:
         }
     }
 
-    void start_ssh_session(std::string player, std::string arguments) {
-        std::shared_ptr<PlayerSession> ssh(new PlayerSession(next_id, this));
+    void start_ssh_session(std::string host, std::string port, std::string arguments) {
+        std::shared_ptr<PlayerSession> player(new PlayerSession(next_id, this));
         try {
-            ssh->start(player, arguments);
+            player->init_socket(host, port);
         }
-        catch(PlayerSession::SshException &ex) {
+        catch(PlayerSession::PlayerException &ex) {
             fprintf(stderr, "%s\n", ex.what());
-            send("ERROR: START " + player);
+            send("ERROR: START " + host);
             return;
         }
         //PlayerSessions.emplace(std::make_pair(next_id, ssh));
-        PlayerSessions.insert(std::make_pair(next_id, ssh));
+        PlayerSessions.insert(std::make_pair(next_id, player));
         //std::thread(telnet_listen, telnet_sock).detach();
-        std::thread(ssh_exit, ssh).detach();
-        // TODO exception o thread
+        std::thread(player_launch, player, host, arguments).detach();
+        // TODO exception do thread
         send("OK " + std::to_string(next_id));
         ++next_id;
         //cerr<<player<< endl <<arguments<<endl;
@@ -278,10 +285,25 @@ void telnet_listen(int telnet_sock) {
     }
 }
 
-void ssh_exit(shared_ptr<PlayerSession> session) {
-//    int status = ssh_channel_get_exit_status(session->channel);
-//    session->master->finish(session->id, status);
+void player_launch(shared_ptr<PlayerSession> session, std::string host, std::string arguments) {
+    // TODO zmienić na player
+    std::string command("ssh " + host + " './ClionProjects/radio/player " + arguments + "; echo $?'");
+    FILE *fpipe = (FILE *) popen(command.c_str(), "r");
+    if (fpipe == NULL) // TODO obsługa błędów
+    {  // If fpipe is NULL
+        perror("Problems with pipe");
+        exit(1);
+    }
+    char ret[256];
+    fgets(ret, sizeof(ret), fpipe);
+    printf("%s\n", ret);
+    pclose(fpipe);
 }
+
+//void ssh_exit(shared_ptr<PlayerSession> session) {
+////    int status = ssh_channel_get_exit_status(session->channel);
+////    session->master->finish(session->id, status);
+//}
 
 int parse_port_number(char *port) {
     static boost::regex port_regex("\\d+");
