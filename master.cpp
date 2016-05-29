@@ -199,15 +199,17 @@ public:
         }
     }
 
-    void finish(int id, int status) {
+    void finish(int id, std::string status, std::string error_message) {
         auto it = PlayerSessions.find(id);
         if (it != PlayerSessions.end()) {
             PlayerSessions.erase(it);
-            std::string s("Player " + std::to_string(id) + " finished with status " + std::to_string(status));
+            std::string s;
+            if (status == "0") s = "Player " + std::to_string(id) + " finished with status " + status;
+            else s = "ERROR: Player " + std::to_string(id) + " finished with status " + status + " " + error_message;
             send(s);
         }
         else {
-            fprintf(stderr, "TelnetSession finish id: %d, status: %d\n", id, status);
+            fprintf(stderr, "Player session id: %d, status: %s can not be finished\n", id, status.c_str());
         }
     }
 
@@ -228,9 +230,9 @@ private:
     void parse_command(char *command) {
         //cerr<<command<<endl;
         // START komputer host path r-port file m-port md
-        static const boost::regex start_regex("START +(\\S+) +(\\S+ +\\S+ +\\d+ +\\S+ +(\\d+) +(?:yes|no))\\s*");
+        static const boost::regex start_regex("START +(\\S+) +(\\S+ +\\S+ +\\d+ +(\\S+) +(\\d+) +(?:yes|no))\\s*");
         // AT HH.MM M komputer host path r-port file m-port md
-        static const boost::regex at_regex("AT +(\\d{2}\\.\\d{2}) +(\\d) +(\\S+) +(\\S+ +\\S+ +\\d+ +\\S+ +(\\d+) +(?:yes|no))\\s*");
+        static const boost::regex at_regex("AT +(\\d{2}\\.\\d{2}) +(\\d) +(\\S+) +(\\S+ +\\S+ +\\d+ +(\\S+) +(\\d+) +(?:yes|no))\\s*");
         // PAUSE | PLAY | QUIT  ID
         static const boost::regex command_regex("(PAUSE|PLAY|QUIT) +(\\d+)\\s*");
         // TITLE ID
@@ -309,7 +311,10 @@ void player_launch(TelnetSession *telnet_session, int id, std::string host, std:
         char ret[256];
         if (fgets(ret, sizeof(ret), fpipe)) {
             // TODO lepsza obróbka statusu
-            //telnet_session->finish(id, std::string(ret));
+            fprintf(stderr, "%s\n", ret);
+            std::string status = "42";
+            std::string error_message = "ala ma kota";
+            telnet_session->finish(id, status, error_message);
         }
         else {
             perror("reading status from player");
