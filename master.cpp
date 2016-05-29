@@ -59,13 +59,11 @@ public:
             syserr("SocketListener accept accept");
         }
         std::thread(telnet_listen, telnet_sock).detach();
-        //TelnetSessions.emplace(TelnetSession(telnetsock));
     }
 
 private:
     static const int BACKLOG = 10;
     int sock;
-    //set<std::shared_ptr<TelnetSession>> TelnetSessions;
 };
 
 class PlayerSession {
@@ -77,8 +75,6 @@ public:
     PlayerSession(int id) : id(id) { }
 
     void init_socket(std::string host, std::string port) {
-        cerr<<"init_socket "<<host<<' '<<port<<endl;
-
         int rc;
         uint16_t port_int;
 
@@ -93,8 +89,6 @@ public:
         else {
             throw PlayerException("invalid port number: " + port + " for " + host);
         }
-
-        cerr<<"init_socket port_int "<<port_int<<endl;
 
         struct addrinfo addr_hints;
         struct addrinfo *addr_result;
@@ -115,21 +109,7 @@ public:
         sock = socket(addr_result->ai_family, addr_result->ai_socktype, addr_result->ai_protocol);
 
         freeaddrinfo(addr_result);
-
-        cerr<<addr.sin_addr.s_addr<<' '<<addr.sin_port<<endl;
-        //sendto(sock, "ala ma kota", 11, 0, (sockaddr *) &addr, sizeof(addr));
     }
-
-//    void PlayerSession::send_command(std::string command) {
-//        ssize_t len = sendto(sock, command.c_str(), command.size(), 0, (sockaddr *) &addr, sizeof(struct sockaddr_in));
-//        if (len < 0) {
-//            perror("sendto: send command to player");
-//            //telnet->send("ERROR " + std::to_string(id) + " " + command);
-//            // TODO bug there up
-//        }
-//    }
-
-    //friend void player_launch(shared_ptr<TelnetSession>, std::string, std::string);
 
     class PlayerException: public std::exception {
     public:
@@ -161,10 +141,6 @@ public:
         }
     }
 
-    // TODO read, parse, process
-    // sensowne wczytywanie danych
-    // to chyba jest ok
-    // czyszczenie bufora
     void listen() {
         bool cr = false;
         ssize_t rc;
@@ -233,7 +209,6 @@ private:
     std::unordered_map<int, shared_ptr<PlayerSession>> PlayerSessions;
 
     void parse_command(char *command) {
-        //cerr<<command<<endl;
         // TODO filtracja sekwencji znakowych
         // START komputer host path r-port file m-port md
         static const boost::regex start_regex("START +(\\S+) +(\\S+ +\\S+ +\\d+ +(\\S+) +(\\d+) +(?:yes|no))\\s*");
@@ -253,7 +228,6 @@ private:
 
         }
         else if (boost::regex_match(command, match, start_regex)) {
-            //cerr<<match[1]<<endl<<match[2]<<endl<<match[3]<<endl;
             if (match[3] == "-") {
                 fprintf(stderr, "Invalid command: %s\n", command);
                 send_back("ERROR: Invalid command");
@@ -295,9 +269,6 @@ private:
             send_back("ERROR: Player " + id_str + " not found");
         }
         else {
-            // TODO odsyłam sam sobie
-            cerr<<command<<endl;
-            cerr<<sock<<' '<<it->second->addr.sin_addr.s_addr<<' '<<it->second->addr.sin_port<<' '<<ntohs(it->second->addr.sin_port)<<endl;
             ssize_t len = sendto(it->second->sock, command.c_str(), command.size(), 0, (sockaddr *) &(it->second->addr), sizeof(struct sockaddr_in));
             if (len < 0) {
                 send_back("ERROR: Player " + id_str + " command not sent");
@@ -334,24 +305,16 @@ void player_launch(TelnetSession *telnet_session, int id, std::string host, std:
         if (fgets(ret, sizeof(ret), fpipe)) {
             // TODO lepsza obróbka statusu
             fprintf(stderr, "%s\n", ret);
-            std::string status = "42"; // TODO zaślepka
-            std::string error_message = std::string(ret);
+            std::string error_message = "42"; // TODO zaślepka
+            std::string status = std::string(ret);
             telnet_session->finish(id, status, error_message);
         }
         else {
             perror("reading status from player");
         }
-        //fprintf(stderr, "%s\n", ret);
-        //cerr << "exit status" << ret << endl;
-        //telnet_session->send("EXIT STATUS: " + std::string(ret));
         pclose(fpipe);
     }
 }
-
-//void ssh_exit(shared_ptr<PlayerSession> session) {
-////    int status = ssh_channel_get_exit_status(session->channel);
-////    session->master->finish(session->id, status);
-//}
 
 int parse_port_number(char *port) {
     static boost::regex port_regex("\\d+");
