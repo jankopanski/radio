@@ -3,7 +3,7 @@
 #include <thread>
 #include <netdb.h>
 #include <sys/socket.h>
-#include <libssh/libssh.h>
+//#include <libssh/libssh.h>
 #include <boost/regex.hpp>
 #include <boost/lexical_cast.hpp>
 #include "err.h"
@@ -69,28 +69,24 @@ class SshSession {
 public:
     SshSession(int id, TelnetSession *telnet_session) : id(id), master(telnet_session) { }
 
-    ssh_channel getChannel() {
-        return channel;
-    }
-
     void start(std::string player, std::string arguments) {
-        int rc;
-        session = ssh_new();
-        // TODO ssh_free(session)
-        // ssh_disconnect
-        if (session == NULL) throw SshException("start ssh_new " + player);
-        ssh_options_set(session, SSH_OPTIONS_HOST, player.c_str());
-        rc = ssh_connect(session);
-        if (rc != SSH_OK) throw SshException("start ssh_connect " + player);
-        rc = ssh_userauth_publickey_auto(session, NULL, NULL);
-        if (rc != SSH_AUTH_SUCCESS) throw SshException("start ssh_userauth_publickey_auto " + player);
-        channel = ssh_channel_new(session);
-        if (channel == NULL) throw SshException("start ssh_channel_new " + player);
-        rc = ssh_channel_open_session(channel);
-        if (rc != SSH_OK) throw SshException("start ssh_channel_open_session " + player);
-        std::string command = "./player " + arguments;
-        rc = ssh_channel_request_exec(channel, command.c_str());
-        if (rc != SSH_OK) throw SshException("start ssh_channel_request_exec " + player);
+//        int rc;
+//        session = ssh_new();
+//        // TODO ssh_free(session)
+//        // ssh_disconnect
+//        if (session == NULL) throw SshException("start ssh_new " + player);
+//        ssh_options_set(session, SSH_OPTIONS_HOST, player.c_str());
+//        rc = ssh_connect(session);
+//        if (rc != SSH_OK) throw SshException("start ssh_connect " + player);
+//        rc = ssh_userauth_publickey_auto(session, NULL, NULL);
+//        if (rc != SSH_AUTH_SUCCESS) throw SshException("start ssh_userauth_publickey_auto " + player);
+//        channel = ssh_channel_new(session);
+//        if (channel == NULL) throw SshException("start ssh_channel_new " + player);
+//        rc = ssh_channel_open_session(channel);
+//        if (rc != SSH_OK) throw SshException("start ssh_channel_open_session " + player);
+//        std::string command = "./player " + arguments;
+//        rc = ssh_channel_request_exec(channel, command.c_str());
+//        if (rc != SSH_OK) throw SshException("start ssh_channel_request_exec " + player);
     }
 
     friend void ssh_exit(shared_ptr<SshSession>);
@@ -110,8 +106,8 @@ public:
 
 private:
     int id;
-    ssh_session session;
-    ssh_channel channel;
+//    ssh_session session;
+//    ssh_channel channel;
     shared_ptr<TelnetSession> master;
 };
 
@@ -275,8 +271,8 @@ void telnet_listen(int telnet_sock) {
 }
 
 void ssh_exit(shared_ptr<SshSession> session) {
-    int status = ssh_channel_get_exit_status(session->channel);
-    session->master->finish(session->id, status);
+//    int status = ssh_channel_get_exit_status(session->channel);
+//    session->master->finish(session->id, status);
 }
 
 int parse_port_number(char *port) {

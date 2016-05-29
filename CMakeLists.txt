@@ -9,9 +9,13 @@ set (Boost_USE_STATIC_LIBS OFF) # enable dynamic linking
 set (Boost_USE_MULTITHREAD ON)  # enable multithreading
 find_package (Boost COMPONENTS REQUIRED regex)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall")
 
-set(SOURCE_FILES player.cpp err.cpp)
-add_executable(radio ${SOURCE_FILES})
+set(PLAYER_SOURCE_FILES player.cpp err.cpp)
+set(MASTER_SOURCE_FILES master.cpp err.cpp)
 
-target_link_libraries (radio ${Boost_LIBRARIES})
+add_executable(player ${PLAYER_SOURCE_FILES})
+add_executable(master ${MASTER_SOURCE_FILES})
+
+target_link_libraries (player ${Boost_LIBRARIES})
+target_link_libraries (master ${Boost_LIBRARIES})
