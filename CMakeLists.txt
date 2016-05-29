@@ -11,8 +11,8 @@ find_package (Boost COMPONENTS REQUIRED regex)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall")
 
-set(PLAYER_SOURCE_FILES player.cpp err.cpp)
-set(MASTER_SOURCE_FILES master.cpp err.cpp)
+set(PLAYER_SOURCE_FILES player.cpp err.cpp err.h)
+set(MASTER_SOURCE_FILES master.cpp err.cpp err.h TelnetSession.cpp TelnetSession.h SocketListener.cpp SocketListener.h PlayerSession.cpp PlayerSession.h)
 
 add_executable(player ${PLAYER_SOURCE_FILES})
 add_executable(master ${MASTER_SOURCE_FILES})
