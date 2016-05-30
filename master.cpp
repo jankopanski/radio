@@ -1,6 +1,7 @@
 #include <iostream>
 #include <unordered_map>
 #include <thread>
+#include <atomic>
 #include <chrono>
 #include <ctime>
 #include <netdb.h>
@@ -13,15 +14,13 @@
 // START localhost ant-waw-01.cdn.eurozet.pl / 8602 test5.mp3 50000 yes
 // rlwrap telnet localhost 37479
 
-using namespace std;
-
 class PlayerSession;
+class DelayedPlayerSession;
 class TelnetSession;
 void telnet_listen(int);
 void player_launch(TelnetSession*, int, std::string, std::string);
-void delayed_player_launch(TelnetSession*, std::string, std::string, std::string, int, std::string, std::string);
+void delayed_player_launch(TelnetSession*, std::shared_ptr<DelayedPlayerSession>, std::string, std::string, std::string, int, std::string, std::string);
 
-// TODO sensowna obsługa wyjątków
 class SocketListener {
 public:
     SocketListener(int port) {
@@ -81,7 +80,6 @@ public:
         int rc;
         uint16_t port_int;
 
-        //sock = socket(AF_INET, SOCK_DGRAM, 0);
         if (sock < 0) throw PlayerException("init_socket socket " + host);
 
         if (boost::regex_match(port, boost::regex("\\d+"))) {
@@ -114,6 +112,10 @@ public:
         freeaddrinfo(addr_result);
     }
 
+    virtual bool is_active() {
+        return true;
+    }
+
     class PlayerException: public std::exception {
     public:
         PlayerException(std::string s) : message(s) { }
@@ -127,7 +129,20 @@ public:
 
 class DelayedPlayerSession : public PlayerSession {
 public:
-    DelayedPlayerSession(int id) : PlayerSession(id) { }
+    DelayedPlayerSession(int id) : PlayerSession(id) {
+        active = false;
+    }
+
+    bool is_active() {
+        return active.load(std::memory_order_relaxed);
+    }
+
+    void activate() {
+        active.store(true, std::memory_order_relaxed);
+    }
+
+private:
+    std::atomic<bool> active;
 };
 
 class TelnetSession {
@@ -209,7 +224,7 @@ private:
     static const int BUFFER_SIZE = 1024;
     int sock;
     int next_id = 1;
-    std::unordered_map<int, shared_ptr<PlayerSession>> PlayerSessions;
+    std::unordered_map<int, std::shared_ptr<PlayerSession>> PlayerSessions;
 
     void parse_command(char *command) {
         // TODO filtracja sekwencji znakowych
@@ -223,7 +238,7 @@ private:
         // TITLE ID
         static const boost::regex title_regex("TITLE +(\\d+)\\s*");
 
-        boost::cmatch match; // TODO podział na matche
+        boost::cmatch match;
         if (boost::regex_match(command, match, command_regex)) {
             send_command(match[1], match[2]);
         }
@@ -283,7 +298,7 @@ private:
         }
         PlayerSessions.insert(std::make_pair(next_id, player));
         // TODO aktywność wątków
-        std::thread(delayed_player_launch, this, hh, mm, interval, next_id, host, arguments).detach();
+        std::thread(delayed_player_launch, this, player, hh, mm, interval, next_id, host, arguments).detach();
         send_back("OK " + std::to_string(next_id));
         ++next_id;
     }
@@ -293,6 +308,9 @@ private:
         auto it = PlayerSessions.find(id);
         if (it == PlayerSessions.end()) {
             send_back("ERROR: Player " + id_str + " not found");
+        }
+        else if (!it->second->is_active()) {
+            send_back("ERROR: Player " + id_str + " not active");
         }
         else {
             ssize_t len = sendto(it->second->sock, command.c_str(), command.size(), 0, (sockaddr *) &(it->second->addr), sizeof(struct sockaddr_in));
@@ -311,6 +329,9 @@ private:
         auto it = PlayerSessions.find(id);
         if (it == PlayerSessions.end()) {
             send_back("ERROR: Player " + id_str + " not found");
+        }
+        else if (!it->second->is_active()) {
+            send_back("ERROR: Player " + id_str + " not active");
         }
         else {
             ssize_t len = sendto(it->second->sock, "TITLE", 5, 0, (sockaddr *) &(it->second->addr), sizeof(struct sockaddr_in));
@@ -367,7 +388,7 @@ void player_launch(TelnetSession *telnet_session, int id, std::string host, std:
     }
 }
 // TODO player is not active error
-void delayed_player_launch(TelnetSession *telnet_session, std::string hh, std::string mm, std::string interval, int id, std::string host, std::string arguments) {
+void delayed_player_launch(TelnetSession *telnet_session, std::shared_ptr<DelayedPlayerSession> player_session, std::string hh, std::string mm, std::string interval, int id, std::string host, std::string arguments) {
     const static int DAY_MINUTES = 1440;
     int HH = boost::lexical_cast<int>(hh);
     int MM = boost::lexical_cast<int>(mm);
@@ -381,6 +402,7 @@ void delayed_player_launch(TelnetSession *telnet_session, std::string hh, std::s
     //std::this_thread::sleep_until(std::chrono::system_clock::now() + std::chrono::minutes(delay));
     // TODO usunąć ClionProjects
     std::string command("ssh " + host + " 'timeout " + interval +"m ./ClionProjects/radio/player " + arguments + "; echo $?'");
+    player_session->activate();
     FILE *fpipe = (FILE *) popen(command.c_str(), "r");
     if (fpipe == NULL) {
         perror("Problems with pipe");
