@@ -13,8 +13,6 @@
 // ./player stream3.polskieradio.pl / 8900 - 10000 no | mplayer -cache 1024 -
 // echo -n "hello" > /dev/udp/localhost/10000
 
-using namespace std; // TODO usunąć
-
 const int HEADER_MAX_LENGTH = 100000;
 const int TIME = 5000;
 
@@ -31,7 +29,7 @@ class Radio {
 public:
     Radio(int r_sock, int outfd, int metaint, bool metadata) : in(r_sock), out(outfd), audiolen(metaint),
                                                                metadata(metadata) {
-        buffer_size = metadata ? min(max(audiolen, 4080) + 1, MAX_BUFFER_SIZE) : MAX_BUFFER_SIZE; // TODO statyczny buffer
+        buffer_size = metadata ? std::min(std::max(audiolen, 4080) + 1, MAX_BUFFER_SIZE) : MAX_BUFFER_SIZE; // TODO statyczny buffer
         buffer = (char *) malloc((size_t) buffer_size);
         if (buffer == NULL) {
             syserr("Radio malloc");
@@ -46,7 +44,7 @@ public:
         if (metadata) {
             switch (state) {
                 case audio:
-                    readlen = read(in, buffer, (size_t) min(audiolen - audioread, buffer_size));
+                    readlen = read(in, buffer, (size_t) std::min(audiolen - audioread, buffer_size));
                     if (readlen < 0) {
                         syserr("process read");
                     }
@@ -138,7 +136,6 @@ private:
     const int in;
     const int out;
     const int audiolen;
-    //const static int MAX_BUFFER_SIZE = 8192;
     const int MAX_BUFFER_SIZE = 8192;
     const bool metadata;
     int metalen = 0;
@@ -192,7 +189,7 @@ int initialize_message_socket(const char *m_port) {
     }
 
     if (boost::regex_match(m_port, boost::regex("\\d+"))) {
-        m_port_int = atoi(m_port); // TODO lexical_cast
+        m_port_int = boost::lexical_cast<int>(m_port);
         if (m_port_int < 1024 || m_port_int > 65535) {
             fatal("invalid port number: %d", m_port_int);
         }
