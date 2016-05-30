@@ -4,6 +4,9 @@
 #include <poll.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/select.h>
 #include <boost/regex.hpp>
 #include <boost/lexical_cast.hpp>
 #include "err.h"
@@ -152,10 +155,15 @@ private:
 int initialize_radio_socket(const char *host, const char *r_port) {
     int r_sock, rc;
     struct addrinfo addr_hints, *addr_result;
+    long arg;
+    fd_set fds;
+    struct timeval tv;
+    int valopt;
+    socklen_t lon;
 
     r_sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (r_sock < 0) {
-        syserr("initialize_radio_socket socket");
+        syserr("Error creating socket");
     }
 
     memset(&addr_hints, 0, sizeof(struct addrinfo));
@@ -164,16 +172,72 @@ int initialize_radio_socket(const char *host, const char *r_port) {
     addr_hints.ai_protocol = IPPROTO_TCP;
     rc = getaddrinfo(host, r_port, &addr_hints, &addr_result);
     if (rc == EAI_SYSTEM) {
-        syserr("initialize_radio_socket getaddrinfo: %s", gai_strerror(rc));
+        syserr("getaddrinfo: %s", gai_strerror(rc));
     }
     else if (rc != 0) {
-        fatal("initialize_radio_socket getaddrinfo: %s", gai_strerror(rc));
+        fatal("getaddrinfo: %s", gai_strerror(rc));
+    }
+
+    // Enter non-blocking mode
+    arg = fcntl(r_sock, F_GETFL, NULL);
+    if(arg < 0) {
+        syserr("Error fcntl(r_sock, F_GETFL)");
+    }
+    arg |= O_NONBLOCK;
+    rc = fcntl(r_sock, F_SETFL, arg);
+    if(rc < 0) {
+        syserr("Error fcntl(r_sock, F_SETFL)");
     }
 
     rc = connect(r_sock, addr_result->ai_addr, addr_result->ai_addrlen);
     if (rc < 0) {
-        syserr("initialize_radio_socket connect");
+        if (errno == EINPROGRESS) {
+            //fprintf(stderr, "EINPROGRESS in connect() - selecting\n");
+            do {
+                tv.tv_sec = 5;
+                tv.tv_usec = 0;
+                FD_ZERO(&fds);
+                FD_SET(r_sock, &fds);
+                rc = select(r_sock + 1, NULL, &fds, NULL, &tv);
+                if (rc < 0 && errno != EINTR) {
+                    syserr("Error connecting");
+                }
+                else if (rc > 0) {
+                    lon = sizeof(int);
+                    rc = getsockopt(r_sock, SOL_SOCKET, SO_ERROR, (void*)(&valopt), &lon);
+                    if (rc < 0) {
+                        syserr("Error in getsockopt()");
+                    }
+                    if (valopt) {
+                        syserr("Error in delayed connection()");
+                    }
+                    break;
+                }
+                else {
+                    fatal("Timeout in select() - Cancelling!\n");
+                }
+            } while (1);
+        }
+        else {
+            syserr("Error connecting");
+        }
     }
+
+    // Back to blocking mode
+    arg = fcntl(r_sock, F_GETFL, NULL);
+    if(arg < 0) {
+        syserr("Error fcntl(r_sock, F_GETFL)");
+    }
+    arg &= (~O_NONBLOCK);
+    if( fcntl(r_sock, F_SETFL, arg) < 0) {
+        syserr("Error fcntl(r_sock, F_SETFL)\n");
+    }
+
+//    rc = connect(r_sock, addr_result->ai_addr, addr_result->ai_addrlen);
+//    if (rc < 0) {
+//        syserr("initialize_radio_socket connect");
+//    }
+//    freeaddrinfo(addr_result);
     freeaddrinfo(addr_result);
 
     return r_sock;
