@@ -19,7 +19,7 @@ class PlayerSession;
 class TelnetSession;
 void telnet_listen(int);
 void player_launch(TelnetSession*, int, std::string, std::string);
-void delayed_player_launch(TelnetSession*, std::string, std::string, int, std::string, std::string);
+void delayed_player_launch(TelnetSession*, std::string, std::string, std::string, int, std::string, std::string);
 
 // TODO sensowna obsługa wyjątków
 class SocketListener {
@@ -216,7 +216,7 @@ private:
         // START komputer host path r-port file m-port md
         static const boost::regex start_regex("START +(\\S+) +(\\S+ +\\S+ +\\d+ +(\\S+) +(\\d+) +(?:yes|no))\\s*");
         // AT HH.MM M komputer host path r-port file m-port md
-        static const boost::regex at_regex("AT +(\\d{2}\\.\\d{2}) +(\\d) +(\\S+) +(\\S+ +\\S+ +\\d+ +(\\S+) +(\\d+) +(?:yes|no))\\s*");
+        static const boost::regex at_regex("AT +(\\d{2})\\.(\\d{2}) +(\\d) +(\\S+) +(\\S+ +\\S+ +\\d+ +(\\S+) +(\\d+) +(?:yes|no))\\s*");
         // PAUSE | PLAY | QUIT  ID
         static const boost::regex command_regex("(PAUSE|PLAY|QUIT) +(\\d+)\\s*");
         // TITLE ID
@@ -239,12 +239,12 @@ private:
             }
         }
         else if (boost::regex_match(command, match, at_regex)) {
-            if (match[5] == "-") {
+            if (match[6] == "-") {
                 fprintf(stderr, "Invalid command: %s\n", command);
                 send_back("ERROR: Invalid command");
             }
             else {
-                start_delayed_ssh_session(match[1], match[2], match[3], match[6], match[4]);
+                start_delayed_ssh_session(match[1], match[2], match[3], match[4], match[7], match[5]);
             }
         }
         else {
@@ -270,7 +270,7 @@ private:
         ++next_id;
     }
 
-    void start_delayed_ssh_session(std::string start_time, std::string interval, std::string host, std::string port, std::string arguments) {
+    void start_delayed_ssh_session(std::string hh, std::string mm, std::string interval, std::string host, std::string port, std::string arguments) {
         std::shared_ptr<DelayedPlayerSession> player(new DelayedPlayerSession(next_id));
         try {
             player->init_socket(host, port);
@@ -282,7 +282,7 @@ private:
         }
         PlayerSessions.insert(std::make_pair(next_id, player));
         // TODO aktywność wątków
-        std::thread(delayed_player_launch, this, start_time, interval, next_id, host, arguments).detach();
+        std::thread(delayed_player_launch, this, hh, mm, interval, next_id, host, arguments).detach();
         send_back("OK " + std::to_string(next_id));
         ++next_id;
     }
@@ -368,17 +368,17 @@ void player_launch(TelnetSession *telnet_session, int id, std::string host, std:
     }
 }
 
-void delayed_player_launch(TelnetSession *telnet_session, std::string time_start, std::string interval, int id, std::string host, std::string arguments) {
+void delayed_player_launch(TelnetSession *telnet_session, std::string hh, std::string mm, std::string interval, int id, std::string host, std::string arguments) {
 
-    cerr<<"time to sleep"<<endl;
-    struct tm tm;
-    strptime(time_start.c_str(), "%H:%M", &tm);
-    std::time_t t = mktime(&tm);  // t is now your desired time_t
-
-    using std::chrono::system_clock;
-    std::this_thread::sleep_until(system_clock::from_time_t(t));
-
-    cerr << "wake up" <<endl;
+//    cerr<<"time to sleep"<<endl;
+//    struct tm tm;
+//    strptime(time_start.c_str(), "%H:%M", &tm);
+//    std::time_t t = mktime(&tm);  // t is now your desired time_t
+//
+//    using std::chrono::system_clock;
+//    std::this_thread::sleep_until(system_clock::from_time_t(t));
+//
+//    cerr << "wake up" <<endl;
 //    using std::chrono::system_clock;
 //    std::time_t tt = system_clock::to_time_t (system_clock::now());
 //    struct std::tm * ptm = std::localtime(&tt);
