@@ -2,6 +2,7 @@
 #include <unordered_map>
 #include <thread>
 #include <atomic>
+#include <system_error>
 #include <netdb.h>
 #include <boost/regex.hpp>
 #include <boost/lexical_cast.hpp>
@@ -224,7 +225,7 @@ public:
     };
 
 private:
-    static const int BUFFER_SIZE = 1024;
+    static const int BUFFER_SIZE = 2048;
     int sock;
     int next_id = 1;
     std::unordered_map<int, std::shared_ptr<PlayerSession>> PlayerSessions;
@@ -232,7 +233,8 @@ private:
     void parse_command(char *command) {
         std::string scommand(filter(command));
         // START komputer host path r-port file m-port md
-        static const boost::regex start_regex("START +(\\S+) +(\\S+ +\\S+ +\\d{1,5} +(\\S+) +(\\d{1,5}) +(?:yes|no))\\s*");
+        static const boost::regex start_regex(
+                "START +(\\S+) +(\\S+ +\\S+ +\\d{1,5} +(\\S+) +(\\d{1,5}) +(?:yes|no))\\s*");
         // AT HH.MM M komputer host path r-port file m-port md
         static const boost::regex at_regex(
                 "AT +(\\d{2})\\.(\\d{2}) +(\\d) +(\\S+) +(\\S+ +\\S+ +\\d{1,5} +(\\S+) +(\\d{1,5}) +(?:yes|no))\\s*");
@@ -275,7 +277,7 @@ private:
         std::string scommand;
         int state = 0;
         for (size_t i = 0, n = strlen(command); i < n; ++i) {
-            switch(state) {
+            switch (state) {
                 case 0:
                     if (command[i] == 255) state = 1;
                     else scommand.push_back(command[i]);
@@ -301,15 +303,19 @@ private:
         std::shared_ptr<PlayerSession> player(new PlayerSession(next_id));
         try {
             player->init_socket(host, port);
+            PlayerSessions.insert(std::make_pair(next_id, player));
+            std::thread(player_launch, this, next_id, host, arguments).detach();
         }
-        catch (PlayerSession::PlayerException &ex) {
+        catch (const PlayerSession::PlayerException &ex) {
             fprintf(stderr, "%s\n", ex.what());
             send_back("ERROR: START " + host);
             return;
         }
-        PlayerSessions.insert(std::make_pair(next_id, player));
-        std::thread(player_launch, this, next_id, host, arguments).detach();
-        // TODO exception do thread
+        catch (const std::system_error &ex) {
+            fprintf(stderr, "%s\n", ex.what());
+            send_back("ERROR: START " + host);
+            return;
+        }
         send_back("OK " + std::to_string(next_id));
         ++next_id;
     }
@@ -319,21 +325,33 @@ private:
         std::shared_ptr<DelayedPlayerSession> player(new DelayedPlayerSession(next_id));
         try {
             player->init_socket(host, port);
+            PlayerSessions.insert(std::make_pair(next_id, player));
+            std::thread(delayed_player_launch, this, player, hh, mm, interval, next_id, host, arguments).detach();
         }
         catch (PlayerSession::PlayerException &ex) {
             fprintf(stderr, "%s\n", ex.what());
             send_back("ERROR: START " + host);
             return;
         }
-        PlayerSessions.insert(std::make_pair(next_id, player));
-        // TODO aktywność wątków
-        std::thread(delayed_player_launch, this, player, hh, mm, interval, next_id, host, arguments).detach();
+        catch (const std::system_error &ex) {
+            fprintf(stderr, "%s\n", ex.what());
+            send_back("ERROR: START " + host);
+            return;
+        }
         send_back("OK " + std::to_string(next_id));
         ++next_id;
     }
 
     void send_command(std::string command, std::string id_str) {
-        int id = boost::lexical_cast<int>(id_str);
+        int id;
+        try {
+            id = boost::lexical_cast<int>(id_str);
+        }
+        catch (const boost::bad_lexical_cast &ex) {
+            fprintf(stderr, "%s\n", ex.what());
+            send_back("ERROR: Player " + id_str);
+            return;
+        }
         auto it = PlayerSessions.find(id);
         if (it == PlayerSessions.end()) {
             send_back("ERROR: Player " + id_str + " not found");
@@ -342,7 +360,8 @@ private:
             send_back("ERROR: Player " + id_str + " not active");
         }
         else {
-            ssize_t len = sendto(it->second->sock, command.c_str(), command.size(), 0, (sockaddr *) &(it->second->addr),
+            ssize_t len = sendto(it->second->sock, command.c_str(), command.size(), 0,
+                                 (sockaddr *) &(it->second->addr),
                                  sizeof(struct sockaddr_in));
             if (len < 0) {
                 send_back("ERROR: Player " + id_str + " command not sent");
@@ -354,36 +373,44 @@ private:
         }
     }
 
-    void fetch_title(std::string id_str) {
-        int id = boost::lexical_cast<int>(id_str);
-        auto it = PlayerSessions.find(id);
-        if (it == PlayerSessions.end()) {
-            send_back("ERROR: Player " + id_str + " not found");
-        }
-        else if (!it->second->is_active()) {
-            send_back("ERROR: Player " + id_str + " not active");
+void fetch_title(std::string id_str) {
+    int id;
+    try {
+        id = boost::lexical_cast<int>(id_str);
+    }
+    catch (const boost::bad_lexical_cast &ex) {
+        fprintf(stderr, "%s\n", ex.what());
+        send_back("ERROR: Player " + id_str);
+        return;
+    }
+    auto it = PlayerSessions.find(id);
+    if (it == PlayerSessions.end()) {
+        send_back("ERROR: Player " + id_str + " not found");
+    }
+    else if (!it->second->is_active()) {
+        send_back("ERROR: Player " + id_str + " not active");
+    }
+    else {
+        ssize_t len = sendto(it->second->sock, "TITLE", 5, 0, (sockaddr *) &(it->second->addr),
+                             sizeof(struct sockaddr_in));
+        if (len < 0) {
+            send_back("ERROR: Player " + id_str + " command not sent");
+            perror("sendto: send command to player");
         }
         else {
-            ssize_t len = sendto(it->second->sock, "TITLE", 5, 0, (sockaddr *) &(it->second->addr),
-                                 sizeof(struct sockaddr_in));
-            if (len < 0) {
-                send_back("ERROR: Player " + id_str + " command not sent");
-                perror("sendto: send command to player");
+            char buffer[8192];
+            len = recv(it->second->sock, buffer, sizeof(buffer), 0);
+            if (len <= 0) {
+                send_back("ERROR: getting title from player " + id_str);
             }
-            else {
-                char buffer[8192];
-                len = recv(it->second->sock, buffer, sizeof(buffer), 0);
-                if (len <= 0) {
-                    send_back("ERROR: getting title from player " + id_str);
-                }
-                send_back("OK " + id_str + " " + std::string(buffer));
-            }
+            send_back("OK " + id_str + " " + std::string(buffer));
         }
     }
+}
+
 };
 
 void telnet_listen(int telnet_sock) {
-    //cerr << telnet_sock << endl;
     TelnetSession telnet(telnet_sock);
     try {
         telnet.listen();
