@@ -192,7 +192,6 @@ int initialize_radio_socket(const char *host, const char *r_port) {
     rc = connect(r_sock, addr_result->ai_addr, addr_result->ai_addrlen);
     if (rc < 0) {
         if (errno == EINPROGRESS) {
-            //fprintf(stderr, "EINPROGRESS in connect() - selecting\n");
             do {
                 tv.tv_sec = 5;
                 tv.tv_usec = 0;
@@ -233,11 +232,6 @@ int initialize_radio_socket(const char *host, const char *r_port) {
         syserr("Error fcntl(r_sock, F_SETFL)\n");
     }
 
-//    rc = connect(r_sock, addr_result->ai_addr, addr_result->ai_addrlen);
-//    if (rc < 0) {
-//        syserr("initialize_radio_socket connect");
-//    }
-//    freeaddrinfo(addr_result);
     freeaddrinfo(addr_result);
 
     return r_sock;
@@ -255,11 +249,11 @@ int initialize_message_socket(const char *m_port) {
     if (boost::regex_match(m_port, boost::regex("\\d+"))) {
         m_port_int = boost::lexical_cast<int>(m_port);
         if (m_port_int < 1024 || m_port_int > 65535) {
-            fatal("invalid port number: %d", m_port_int);
+            fatal("Invalid port number: %d", m_port_int);
         }
     }
     else {
-        fatal("invalid port number: %s", m_port);
+        fatal("Invalid port number: %s", m_port);
     }
 
     controller.sin_family = AF_INET;
@@ -313,7 +307,7 @@ int receive_get_request(const int sock, const bool metadata) {
         else state = 0;
         ++len;
         if (len >= HEADER_MAX_LENGTH) {
-            fatal("buffer overflow");
+            fatal("Buffer overflow");
         }
     }
     boost::regex header;
@@ -354,7 +348,7 @@ void process_command(int sock, int out, Radio &radio) {
         else if (strcmp(buffer, "QUIT") == 0) {
             quit(out);
         }
-        else fprintf(stderr, "invalid command: %s\n", buffer);
+        else fprintf(stderr, "Invalid command: %s\n", buffer);
     }
     else if (recvlen == 5) {
         buffer[5] = 0;
@@ -368,9 +362,9 @@ void process_command(int sock, int out, Radio &radio) {
                 syserr("process_command sendto");
             }
         }
-        else fprintf(stderr, "invalid command: %s\n", buffer);
+        else fprintf(stderr, "Invalid command: %s\n", buffer);
     }
-    else fprintf(stderr, "invalid command: %s\n", buffer);
+    else fprintf(stderr, "Invalid command: %s\n", buffer);
 }
 
 int main(int argc, char *argv[]) {
