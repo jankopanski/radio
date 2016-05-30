@@ -221,11 +221,10 @@ private:
 
         boost::cmatch match; // TODO podział na matche
         if (boost::regex_match(command, match, command_regex)) {
-            cerr<<"parse_command "<<match[1]<<' '<<match[2]<<endl;
             send_command(match[1], match[2]);
         }
         else if (boost::regex_match(command, match, title_regex)) {
-
+            fetch_title(match[1]);
         }
         else if (boost::regex_match(command, match, start_regex)) {
             if (match[3] == "-") {
@@ -276,6 +275,29 @@ private:
             }
             else {
                 send_back("OK " + id_str);
+            }
+        }
+    }
+
+    void fetch_title(std::string id_str) {
+        int id = boost::lexical_cast<int>(id_str);
+        auto it = PlayerSessions.find(id);
+        if (it == PlayerSessions.end()) {
+            send_back("ERROR: Player " + id_str + " not found");
+        }
+        else {
+            ssize_t len = sendto(it->second->sock, "TITLE", 5, 0, (sockaddr *) &(it->second->addr), sizeof(struct sockaddr_in));
+            if (len < 0) {
+                send_back("ERROR: Player " + id_str + " command not sent");
+                perror("sendto: send command to player");
+            }
+            else {
+                char buffer[8192];
+                len = recv(it->second->sock, buffer, sizeof(buffer), 0);
+                if (len <= 0) {
+                    send_back("ERROR: getting title from player " + id_str);
+                }
+                send_back("OK " + id_str + " " + std::string(buffer));
             }
         }
     }
