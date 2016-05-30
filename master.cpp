@@ -422,18 +422,14 @@ void telnet_listen(int telnet_sock) {
 
 void player_launch(TelnetSession *telnet_session, int id, std::string host, std::string arguments) {
     // TODO zmienić na player
-    // ' EXIT STATUS $? '
     std::string command("ssh " + host + " './ClionProjects/radio/player " + arguments + "; echo $?'");
     FILE *fpipe = (FILE *) popen(command.c_str(), "r");
     if (fpipe == NULL) {
         perror("Problems with pipe");
     }
     else {
-        char ret[256]; // TODO zwiększyć limt bufora i go sprawdzać
+        char ret[256];
         if (fgets(ret, sizeof(ret), fpipe)) {
-            // TODO lepsza obróbka statusu
-            fprintf(stderr, "%s\n", ret);
-            //std::string error_message = "42"; // TODO zaślepka
             boost::cmatch match;
             boost::regex_search(ret, match, boost::regex("(\\d+)"));
             std::string status(match[1]);
@@ -446,49 +442,49 @@ void player_launch(TelnetSession *telnet_session, int id, std::string host, std:
     }
 }
 
-// TODO player is not active error
 void delayed_player_launch(TelnetSession *telnet_session, std::shared_ptr<DelayedPlayerSession> player_session,
                            std::string hh, std::string mm, std::string interval, int id, std::string host,
                            std::string arguments) {
     const static int DAY_MINUTES = 1440;
-    int HH = boost::lexical_cast<int>(hh);
-    int MM = boost::lexical_cast<int>(mm);
-    time_t t = time(0);
-    struct tm *now = localtime(&t);
-    int delay = (HH - now->tm_hour) * 60 + MM - now->tm_min;
-    if (delay < 0) {
-        delay = DAY_MINUTES - delay;
-    }
-    std::this_thread::sleep_for(std::chrono::minutes(delay));
-    //std::this_thread::sleep_until(std::chrono::system_clock::now() + std::chrono::minutes(delay));
-    // TODO usunąć ClionProjects
-    std::string command(
-            "ssh " + host + " 'timeout " + interval + "m ./ClionProjects/radio/player " + arguments + "; echo $?'");
-    player_session->activate();
-    FILE *fpipe = (FILE *) popen(command.c_str(), "r");
-    if (fpipe == NULL) {
-        perror("Problems with pipe");
-    }
-    else {
-        char ret[256]; // TODO zwiększyć limt bufora i go sprawdzać
-        if (fgets(ret, sizeof(ret), fpipe)) {
-            // TODO lepsza obróbka statusu
-            fprintf(stderr, "%s\n", ret);
-            //std::string error_message = "42"; // TODO zaślepka
-            boost::cmatch match;
-            boost::regex_search(ret, match, boost::regex("(\\d+)"));
-            std::string status(match[1]);
-            telnet_session->finish(id, status);
+    try {
+        int HH = boost::lexical_cast<int>(hh);
+        int MM = boost::lexical_cast<int>(mm);
+        time_t t = time(0);
+        struct tm *now = localtime(&t);
+        int delay = (HH - now->tm_hour) * 60 + MM - now->tm_min;
+        if (delay < 0) {
+            delay = DAY_MINUTES - delay;
+        }
+        std::this_thread::sleep_for(std::chrono::minutes(delay));
+        // TODO usunąć ClionProjects
+        std::string command(
+                "ssh " + host + " 'timeout " + interval + "m ./ClionProjects/radio/player " + arguments + "; echo $?'");
+        player_session->activate();
+        FILE *fpipe = (FILE *) popen(command.c_str(), "r");
+        if (fpipe == NULL) {
+            perror("Problems with pipe");
         }
         else {
-            perror("reading status from player");
+            char ret[256];
+            if (fgets(ret, sizeof(ret), fpipe)) {
+                boost::cmatch match;
+                boost::regex_search(ret, match, boost::regex("(\\d+)"));
+                std::string status(match[1]);
+                telnet_session->finish(id, status);
+            }
+            else {
+                perror("reading status from player");
+            }
+            pclose(fpipe);
         }
-        pclose(fpipe);
+    }
+    catch(...) {
+        telnet_session->finish(id, "-1");
     }
 }
 
 int parse_port_number(char *port) {
-    static boost::regex port_regex("\\d+");
+    const static boost::regex port_regex("\\d+");
     if (!boost::regex_match(port, port_regex)) {
         fatal("Invalid port number %s", port);
     }
