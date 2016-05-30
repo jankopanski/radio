@@ -3,6 +3,7 @@
 #include <thread>
 #include <atomic>
 #include <system_error>
+#include <poll.h>
 #include <netdb.h>
 #include <boost/regex.hpp>
 #include <boost/lexical_cast.hpp>
@@ -399,11 +400,23 @@ private:
             }
             else {
                 char buffer[8192];
-                len = recv(it->second->sock, buffer, sizeof(buffer), 0); // TODO nonblocking
-                if (len <= 0) {
+                const static int WAITTIME = 3000;
+                struct pollfd polls[1];
+                polls[0].fd = it->second->sock;
+                polls[0].events = POLLIN;
+                polls[0].revents = 0;
+                if (poll(polls, 1, WAITTIME) < 0) {
+                    perror("poll");
                     send_back("ERROR " + id_str + " getting title from player");
                 }
-                send_back("OK " + id_str + " " + std::string(buffer));
+                else if (polls[0].revents == POLLIN) {
+                    len = recv(it->second->sock, buffer, sizeof(buffer), 0);
+                    if (len > 0) {
+                        send_back("OK " + id_str + " " + std::string(buffer));
+                        return;
+                    }
+                }
+                send_back("ERROR " + id_str + " getting title from player");
             }
         }
     }

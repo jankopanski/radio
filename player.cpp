@@ -398,7 +398,7 @@ int main(int argc, char *argv[]) {
         if (poll(polls, 2, POLLTIME) < 0) {
             syserr("poll");
         }
-        if (difftime(time(NULL), timer) >= RADIOTIME) fatal("Radio connection timeout");
+        if (difftime(time(NULL), timer) >= RADIOTIME) quit(outfd);
         if (polls[1].revents == POLLIN) {
             process_command(m_sock, outfd, radio);
         }
