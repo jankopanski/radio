@@ -184,7 +184,7 @@ public:
                 buffer[BUFFER_SIZE] = 0;
                 len = 0;
                 fprintf(stderr, "Telnet buffer exceeded, invalid command:\n%s\n", buffer);
-                send_back("ERROR: Buffer exceeded, invalid command");
+                send_back("ERROR Buffer exceeded, invalid command");
             }
             else if (buffer[len] == '\r') {
                 cr = true;
@@ -209,7 +209,7 @@ public:
             std::string s;
             if (status == "0" || status == "124")
                 s = "Player " + std::to_string(id) + " finished with status " + status;
-            else s = "ERROR: Player " + std::to_string(id) + " finished with status " + status;
+            else s = "ERROR " + std::to_string(id) + " Player finished with status " + status;
             send_back(s);
         }
         else {
@@ -252,7 +252,7 @@ private:
         else if (boost::regex_match(scommand, match, start_regex)) {
             if (match[3] == "-") {
                 fprintf(stderr, "Invalid command: %s\n", command);
-                send_back("ERROR: Invalid command");
+                send_back("ERROR Invalid command");
             }
             else {
                 start_ssh_session(match[1], match[4], match[2]);
@@ -261,7 +261,7 @@ private:
         else if (boost::regex_match(scommand, match, at_regex)) {
             if (match[6] == "-") {
                 fprintf(stderr, "Invalid command: %s\n", command);
-                send_back("ERROR: Invalid command");
+                send_back("ERROR Invalid command");
             }
             else {
                 start_delayed_ssh_session(match[1], match[2], match[3], match[4], match[7], match[5]);
@@ -269,7 +269,7 @@ private:
         }
         else {
             fprintf(stderr, "Invalid command: %s\n", scommand.c_str());
-            send_back("ERROR: Invalid command");
+            send_back("ERROR Invalid command");
         }
     }
 
@@ -308,12 +308,12 @@ private:
         }
         catch (const PlayerSession::PlayerException &ex) {
             fprintf(stderr, "%s\n", ex.what());
-            send_back("ERROR: START " + host);
+            send_back("ERROR START " + host);
             return;
         }
         catch (const std::system_error &ex) {
             fprintf(stderr, "%s\n", ex.what());
-            send_back("ERROR: START " + host);
+            send_back("ERROR START " + host);
             return;
         }
         send_back("OK " + std::to_string(next_id));
@@ -330,12 +330,12 @@ private:
         }
         catch (PlayerSession::PlayerException &ex) {
             fprintf(stderr, "%s\n", ex.what());
-            send_back("ERROR: START " + host);
+            send_back("ERROR START " + host);
             return;
         }
         catch (const std::system_error &ex) {
             fprintf(stderr, "%s\n", ex.what());
-            send_back("ERROR: START " + host);
+            send_back("ERROR START " + host);
             return;
         }
         send_back("OK " + std::to_string(next_id));
@@ -349,22 +349,22 @@ private:
         }
         catch (const boost::bad_lexical_cast &ex) {
             fprintf(stderr, "%s\n", ex.what());
-            send_back("ERROR: Player " + id_str);
+            send_back("ERROR " + id_str + " Player parse title");
             return;
         }
         auto it = PlayerSessions.find(id);
         if (it == PlayerSessions.end()) {
-            send_back("ERROR: Player " + id_str + " not found");
+            send_back("ERROR " + id_str + " Player not found");
         }
         else if (!it->second->is_active()) {
-            send_back("ERROR: Player " + id_str + " not active");
+            send_back("ERROR " + id_str + " Player not active");
         }
         else {
             ssize_t len = sendto(it->second->sock, command.c_str(), command.size(), 0,
                                  (sockaddr *) &(it->second->addr),
                                  sizeof(struct sockaddr_in));
             if (len < 0) {
-                send_back("ERROR: Player " + id_str + " command not sent");
+                send_back("ERROR " + id_str + " Player command not sent");
                 perror("sendto: send command to player");
             }
             else {
@@ -380,28 +380,28 @@ void fetch_title(std::string id_str) {
     }
     catch (const boost::bad_lexical_cast &ex) {
         fprintf(stderr, "%s\n", ex.what());
-        send_back("ERROR: Player " + id_str);
+        send_back("ERROR " + id_str + " Player parsing title");
         return;
     }
     auto it = PlayerSessions.find(id);
     if (it == PlayerSessions.end()) {
-        send_back("ERROR: Player " + id_str + " not found");
+        send_back("ERROR " + id_str + " Player not found");
     }
     else if (!it->second->is_active()) {
-        send_back("ERROR: Player " + id_str + " not active");
+        send_back("ERROR " + id_str+ " Player not active");
     }
     else {
         ssize_t len = sendto(it->second->sock, "TITLE", 5, 0, (sockaddr *) &(it->second->addr),
                              sizeof(struct sockaddr_in));
         if (len < 0) {
-            send_back("ERROR: Player " + id_str + " command not sent");
+            send_back("ERROR " + id_str + " Player command not sent");
             perror("sendto: send command to player");
         }
         else {
             char buffer[8192];
             len = recv(it->second->sock, buffer, sizeof(buffer), 0); // TODO nonblocking
             if (len <= 0) {
-                send_back("ERROR: getting title from player " + id_str);
+                send_back("ERROR " + id_str + " getting title from player");
             }
             send_back("OK " + id_str + " " + std::string(buffer));
         }
@@ -421,8 +421,7 @@ void telnet_listen(int telnet_sock) {
 }
 
 void player_launch(TelnetSession *telnet_session, int id, std::string host, std::string arguments) {
-    // TODO zmienić na player
-    std::string command("ssh " + host + " './ClionProjects/radio/player " + arguments + "; echo $?'");
+    std::string command("ssh " + host + " 'player " + arguments + "; echo $?'");
     FILE *fpipe = (FILE *) popen(command.c_str(), "r");
     if (fpipe == NULL) {
         perror("Problems with pipe");
@@ -456,9 +455,8 @@ void delayed_player_launch(TelnetSession *telnet_session, std::shared_ptr<Delaye
             delay = DAY_MINUTES - delay;
         }
         std::this_thread::sleep_for(std::chrono::minutes(delay));
-        // TODO usunąć ClionProjects
         std::string command(
-                "ssh " + host + " 'timeout " + interval + "m ./ClionProjects/radio/player " + arguments + "; echo $?'");
+                "ssh " + host + " 'timeout " + interval + "m player " + arguments + "; echo $?'");
         player_session->activate();
         FILE *fpipe = (FILE *) popen(command.c_str(), "r");
         if (fpipe == NULL) {

@@ -14,7 +14,8 @@
 // echo -n "hello" > /dev/udp/localhost/10000
 
 const int HEADER_MAX_LENGTH = 100000;
-const int TIME = 5000;
+const int POLLTIME = 5000;
+const double RADIOTIME = 5;
 
 void quit(int fd) {
     if (fd > 2) {
@@ -233,7 +234,7 @@ int initialize_message_socket(const char *m_port) {
         syserr("initialize_message_socket socket");
     }
 
-    if (boost::regex_match(m_port, boost::regex("\\d+"))) {
+    if (boost::regex_match(m_port, boost::regex("\\d{4,5}"))) {
         m_port_int = boost::lexical_cast<int>(m_port);
         if (m_port_int < 1024 || m_port_int > 65535) {
             fatal("Invalid port number: %d", m_port_int);
@@ -309,7 +310,7 @@ int receive_get_request(const int sock, const bool metadata) {
         fatal("get response %s", buffer);
     }
     int status = boost::lexical_cast<int>(match[1]);
-    if (!(status == 200 || status == 302 || status == 304)) { // TODO kody statusów
+    if (!(status == 200 || status == 302 || status == 304)) {
         fatal("get response status %d", status);
     }
     if (metadata) {
@@ -390,16 +391,20 @@ int main(int argc, char *argv[]) {
     polls[1].fd = m_sock;
     polls[0].events = polls[1].events = POLLIN;
 
+    time_t timer;
+    time(&timer);
     for (; ;) {
         polls[0].revents = polls[1].revents = 0;
-        if (poll(polls, 2, TIME) < 0) {
+        if (poll(polls, 2, POLLTIME) < 0) {
             syserr("poll");
+        }
+        if (difftime(time(NULL), timer) >= RADIOTIME) fatal("Radio connection timeout");
+        if (polls[1].revents == POLLIN) {
+            process_command(m_sock, outfd, radio);
         }
         if (polls[0].revents == POLLIN) {
             radio.process();
-        }
-        if (polls[1].revents == POLLIN) {
-            process_command(m_sock, outfd, radio);
+            time(&timer);
         }
     }
 }
