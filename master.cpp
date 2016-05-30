@@ -206,6 +206,7 @@ public:
     void finish(int id, std::string status) {
         auto it = PlayerSessions.find(id);
         if (it != PlayerSessions.end()) {
+            if (close(it->second->sock) < 0) perror("close");
             PlayerSessions.erase(it);
             std::string s;
             if (status == "0" || status == "124")
