@@ -180,13 +180,13 @@ public:
         }
     }
 
-    void finish(int id, std::string status, std::string error_message) {
+    void finish(int id, std::string status) {
         auto it = PlayerSessions.find(id);
         if (it != PlayerSessions.end()) {
             PlayerSessions.erase(it);
             std::string s;
             if (status == "0") s = "Player " + std::to_string(id) + " finished with status " + status;
-            else s = "ERROR: Player " + std::to_string(id) + " finished with status " + status + " " + error_message;
+            else s = "ERROR: Player " + std::to_string(id) + " finished with status " + status;
             send_back(s);
         }
         else {
@@ -327,9 +327,13 @@ void player_launch(TelnetSession *telnet_session, int id, std::string host, std:
         if (fgets(ret, sizeof(ret), fpipe)) {
             // TODO lepsza obróbka statusu
             fprintf(stderr, "%s\n", ret);
-            std::string error_message = "42"; // TODO zaślepka
-            std::string status = std::string(ret);
-            telnet_session->finish(id, status, error_message);
+            //std::string error_message = "42"; // TODO zaślepka
+            cerr<<ret<<endl;
+            boost::cmatch match;
+            boost::regex_search(ret, match, boost::regex("(\\d+)"));
+            std::string status(match[1]);
+            cerr<<status<<endl;
+            telnet_session->finish(id, status);
         }
         else {
             perror("reading status from player");
