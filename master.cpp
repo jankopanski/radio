@@ -373,40 +373,40 @@ private:
         }
     }
 
-void fetch_title(std::string id_str) {
-    int id;
-    try {
-        id = boost::lexical_cast<int>(id_str);
-    }
-    catch (const boost::bad_lexical_cast &ex) {
-        fprintf(stderr, "%s\n", ex.what());
-        send_back("ERROR " + id_str + " Player parsing title");
-        return;
-    }
-    auto it = PlayerSessions.find(id);
-    if (it == PlayerSessions.end()) {
-        send_back("ERROR " + id_str + " Player not found");
-    }
-    else if (!it->second->is_active()) {
-        send_back("ERROR " + id_str+ " Player not active");
-    }
-    else {
-        ssize_t len = sendto(it->second->sock, "TITLE", 5, 0, (sockaddr *) &(it->second->addr),
-                             sizeof(struct sockaddr_in));
-        if (len < 0) {
-            send_back("ERROR " + id_str + " Player command not sent");
-            perror("sendto: send command to player");
+    void fetch_title(std::string id_str) {
+        int id;
+        try {
+            id = boost::lexical_cast<int>(id_str);
+        }
+        catch (const boost::bad_lexical_cast &ex) {
+            fprintf(stderr, "%s\n", ex.what());
+            send_back("ERROR " + id_str + " Player parsing title");
+            return;
+        }
+        auto it = PlayerSessions.find(id);
+        if (it == PlayerSessions.end()) {
+            send_back("ERROR " + id_str + " Player not found");
+        }
+        else if (!it->second->is_active()) {
+            send_back("ERROR " + id_str + " Player not active");
         }
         else {
-            char buffer[8192];
-            len = recv(it->second->sock, buffer, sizeof(buffer), 0); // TODO nonblocking
-            if (len <= 0) {
-                send_back("ERROR " + id_str + " getting title from player");
+            ssize_t len = sendto(it->second->sock, "TITLE", 5, 0, (sockaddr *) &(it->second->addr),
+                                 sizeof(struct sockaddr_in));
+            if (len < 0) {
+                send_back("ERROR " + id_str + " Player command not sent");
+                perror("sendto: send command to player");
             }
-            send_back("OK " + id_str + " " + std::string(buffer));
+            else {
+                char buffer[8192];
+                len = recv(it->second->sock, buffer, sizeof(buffer), 0); // TODO nonblocking
+                if (len <= 0) {
+                    send_back("ERROR " + id_str + " getting title from player");
+                }
+                send_back("OK " + id_str + " " + std::string(buffer));
+            }
         }
     }
-}
 
 };
 
@@ -476,7 +476,7 @@ void delayed_player_launch(TelnetSession *telnet_session, std::shared_ptr<Delaye
             pclose(fpipe);
         }
     }
-    catch(...) {
+    catch (...) {
         telnet_session->finish(id, "-1");
     }
 }
