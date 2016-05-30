@@ -2,10 +2,7 @@
 #include <unordered_map>
 #include <thread>
 #include <atomic>
-#include <chrono>
-#include <ctime>
 #include <netdb.h>
-#include <sys/socket.h>
 #include <boost/regex.hpp>
 #include <boost/lexical_cast.hpp>
 #include "err.h"
@@ -15,11 +12,17 @@
 // rlwrap telnet localhost 37479
 
 class PlayerSession;
+
 class DelayedPlayerSession;
+
 class TelnetSession;
+
 void telnet_listen(int);
-void player_launch(TelnetSession*, int, std::string, std::string);
-void delayed_player_launch(TelnetSession*, std::shared_ptr<DelayedPlayerSession>, std::string, std::string, std::string, int, std::string, std::string);
+
+void player_launch(TelnetSession *, int, std::string, std::string);
+
+void delayed_player_launch(TelnetSession *, std::shared_ptr<DelayedPlayerSession>, std::string, std::string,
+                           std::string, int, std::string, std::string);
 
 class SocketListener {
 public:
@@ -83,7 +86,7 @@ public:
         if (sock < 0) throw PlayerException("init_socket socket " + host);
 
         if (boost::regex_match(port, boost::regex("\\d+"))) {
-            port_int = boost::lexical_cast<uint16_t >(port);
+            port_int = boost::lexical_cast<uint16_t>(port);
             if (port_int < 1024 || port_int > 65535)
                 throw PlayerException("invalid port number: " + port + " for " + host);
         }
@@ -104,7 +107,7 @@ public:
             throw PlayerException("getaddrinfo: " + std::string(gai_strerror(rc)));
 
         addr.sin_family = AF_INET;
-        addr.sin_addr.s_addr = ((struct sockaddr_in*) (addr_result->ai_addr))->sin_addr.s_addr;
+        addr.sin_addr.s_addr = ((struct sockaddr_in *) (addr_result->ai_addr))->sin_addr.s_addr;
         addr.sin_port = htons(port_int);
 
         sock = socket(addr_result->ai_family, addr_result->ai_socktype, addr_result->ai_protocol);
@@ -116,12 +119,14 @@ public:
         return true;
     }
 
-    class PlayerException: public std::exception {
+    class PlayerException : public std::exception {
     public:
         PlayerException(std::string s) : message(s) { }
-        virtual const char* what() const throw() {
+
+        virtual const char *what() const throw() {
             return message.c_str();
         }
+
     private:
         std::string message;
     };
@@ -169,12 +174,10 @@ public:
             if (rc < 0) {
                 perror("TelnetSession process read");
                 throw ConnectionClosed();
-                //return;
             }
             else if (rc == 0) {
                 fprintf(stderr, "Telnet client on socket %d closed connection\n", sock);
                 throw ConnectionClosed();
-                //return;
             }
             else if (len + 1 >= BUFFER_SIZE) {
                 buffer[BUFFER_SIZE] = 0;
@@ -203,7 +206,8 @@ public:
         if (it != PlayerSessions.end()) {
             PlayerSessions.erase(it);
             std::string s;
-            if (status == "0" || status == "124") s = "Player " + std::to_string(id) + " finished with status " + status;
+            if (status == "0" || status == "124")
+                s = "Player " + std::to_string(id) + " finished with status " + status;
             else s = "ERROR: Player " + std::to_string(id) + " finished with status " + status;
             send_back(s);
         }
@@ -212,10 +216,9 @@ public:
         }
     }
 
-    class ConnectionClosed: public std::exception {
+    class ConnectionClosed : public std::exception {
     public:
-        virtual const char* what() const throw()
-        {
+        virtual const char *what() const throw() {
             return "Connection closed";
         }
     };
@@ -232,12 +235,13 @@ private:
         // START komputer host path r-port file m-port md
         static const boost::regex start_regex("START +(\\S+) +(\\S+ +\\S+ +\\d+ +(\\S+) +(\\d+) +(?:yes|no))\\s*");
         // AT HH.MM M komputer host path r-port file m-port md
-        static const boost::regex at_regex("AT +(\\d{2})\\.(\\d{2}) +(\\d) +(\\S+) +(\\S+ +\\S+ +\\d+ +(\\S+) +(\\d+) +(?:yes|no))\\s*");
+        static const boost::regex at_regex(
+                "AT +(\\d{2})\\.(\\d{2}) +(\\d) +(\\S+) +(\\S+ +\\S+ +\\d+ +(\\S+) +(\\d+) +(?:yes|no))\\s*");
         // PAUSE | PLAY | QUIT  ID
         static const boost::regex command_regex("(PAUSE|PLAY|QUIT) +(\\d+)\\s*");
         // TITLE ID
         static const boost::regex title_regex("TITLE +(\\d+)\\s*");
-
+        std::cerr<<command<<' '<<sizeof(command)<<std::endl;
         boost::cmatch match;
         if (boost::regex_match(command, match, command_regex)) {
             send_command(match[1], match[2]);
@@ -269,12 +273,38 @@ private:
         }
     }
 
+    std::string filter(char *command) {
+        std::string scommand;
+        int state = 0;
+        for (int i = 0, n = sizeof(command); i < n; ++i) {
+            switch(state) {
+                case 0:
+                    if (command[i] == 255) state = 1;
+                    else scommand.push_back(command[i]);
+                    break;
+                case 1:
+                    if (command[i] == 255) {
+                        scommand.push_back(command[i]);
+                        state = 0;
+                    }
+                    else if (command[i] >= 251 && command[i] <= 254) state = 2;
+                    else state = 0;
+                    break;
+                default:
+                    // case 2
+                    state = 0;
+                    break;
+            }
+        }
+        return scommand;
+    }
+
     void start_ssh_session(std::string host, std::string port, std::string arguments) {
         std::shared_ptr<PlayerSession> player(new PlayerSession(next_id));
         try {
             player->init_socket(host, port);
         }
-        catch(PlayerSession::PlayerException &ex) {
+        catch (PlayerSession::PlayerException &ex) {
             fprintf(stderr, "%s\n", ex.what());
             send_back("ERROR: START " + host);
             return;
@@ -286,12 +316,13 @@ private:
         ++next_id;
     }
 
-    void start_delayed_ssh_session(std::string hh, std::string mm, std::string interval, std::string host, std::string port, std::string arguments) {
+    void start_delayed_ssh_session(std::string hh, std::string mm, std::string interval, std::string host,
+                                   std::string port, std::string arguments) {
         std::shared_ptr<DelayedPlayerSession> player(new DelayedPlayerSession(next_id));
         try {
             player->init_socket(host, port);
         }
-        catch(PlayerSession::PlayerException &ex) {
+        catch (PlayerSession::PlayerException &ex) {
             fprintf(stderr, "%s\n", ex.what());
             send_back("ERROR: START " + host);
             return;
@@ -313,7 +344,8 @@ private:
             send_back("ERROR: Player " + id_str + " not active");
         }
         else {
-            ssize_t len = sendto(it->second->sock, command.c_str(), command.size(), 0, (sockaddr *) &(it->second->addr), sizeof(struct sockaddr_in));
+            ssize_t len = sendto(it->second->sock, command.c_str(), command.size(), 0, (sockaddr *) &(it->second->addr),
+                                 sizeof(struct sockaddr_in));
             if (len < 0) {
                 send_back("ERROR: Player " + id_str + " command not sent");
                 perror("sendto: send command to player");
@@ -334,7 +366,8 @@ private:
             send_back("ERROR: Player " + id_str + " not active");
         }
         else {
-            ssize_t len = sendto(it->second->sock, "TITLE", 5, 0, (sockaddr *) &(it->second->addr), sizeof(struct sockaddr_in));
+            ssize_t len = sendto(it->second->sock, "TITLE", 5, 0, (sockaddr *) &(it->second->addr),
+                                 sizeof(struct sockaddr_in));
             if (len < 0) {
                 send_back("ERROR: Player " + id_str + " command not sent");
                 perror("sendto: send command to player");
@@ -357,7 +390,7 @@ void telnet_listen(int telnet_sock) {
     try {
         telnet.listen();
     }
-    catch(TelnetSession::ConnectionClosed &ex) {
+    catch (TelnetSession::ConnectionClosed &ex) {
         fprintf(stderr, "%s\n", ex.what());
     }
 }
@@ -387,13 +420,16 @@ void player_launch(TelnetSession *telnet_session, int id, std::string host, std:
         pclose(fpipe);
     }
 }
+
 // TODO player is not active error
-void delayed_player_launch(TelnetSession *telnet_session, std::shared_ptr<DelayedPlayerSession> player_session, std::string hh, std::string mm, std::string interval, int id, std::string host, std::string arguments) {
+void delayed_player_launch(TelnetSession *telnet_session, std::shared_ptr<DelayedPlayerSession> player_session,
+                           std::string hh, std::string mm, std::string interval, int id, std::string host,
+                           std::string arguments) {
     const static int DAY_MINUTES = 1440;
     int HH = boost::lexical_cast<int>(hh);
     int MM = boost::lexical_cast<int>(mm);
     time_t t = time(0);
-    struct tm * now = localtime(&t);
+    struct tm *now = localtime(&t);
     int delay = (HH - now->tm_hour) * 60 + MM - now->tm_min;
     if (delay < 0) {
         delay = DAY_MINUTES - delay;
@@ -401,7 +437,8 @@ void delayed_player_launch(TelnetSession *telnet_session, std::shared_ptr<Delaye
     std::this_thread::sleep_for(std::chrono::minutes(delay));
     //std::this_thread::sleep_until(std::chrono::system_clock::now() + std::chrono::minutes(delay));
     // TODO usunąć ClionProjects
-    std::string command("ssh " + host + " 'timeout " + interval +"m ./ClionProjects/radio/player " + arguments + "; echo $?'");
+    std::string command(
+            "ssh " + host + " 'timeout " + interval + "m ./ClionProjects/radio/player " + arguments + "; echo $?'");
     player_session->activate();
     FILE *fpipe = (FILE *) popen(command.c_str(), "r");
     if (fpipe == NULL) {
@@ -443,7 +480,7 @@ int main(int argc, char *argv[]) {
     if (argc == 2) {
         port = parse_port_number(argv[1]);
     }
-    else if (argc > 2){
+    else if (argc > 2) {
         fatal("Usage: %s [port]", argv[0]);
     }
 
