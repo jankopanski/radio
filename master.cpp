@@ -188,7 +188,7 @@ public:
         if (it != PlayerSessions.end()) {
             PlayerSessions.erase(it);
             std::string s;
-            if (status == "0") s = "Player " + std::to_string(id) + " finished with status " + status;
+            if (status == "0" || status == "124") s = "Player " + std::to_string(id) + " finished with status " + status;
             else s = "ERROR: Player " + std::to_string(id) + " finished with status " + status;
             send_back(s);
         }
@@ -213,6 +213,7 @@ private:
 
     void parse_command(char *command) {
         // TODO filtracja sekwencji znakowych
+        // TODO zmienic + na konkretne liczby
         // START komputer host path r-port file m-port md
         static const boost::regex start_regex("START +(\\S+) +(\\S+ +\\S+ +\\d+ +(\\S+) +(\\d+) +(?:yes|no))\\s*");
         // AT HH.MM M komputer host path r-port file m-port md
@@ -365,7 +366,7 @@ void player_launch(TelnetSession *telnet_session, int id, std::string host, std:
         pclose(fpipe);
     }
 }
-
+// TODO player is not active error
 void delayed_player_launch(TelnetSession *telnet_session, std::string hh, std::string mm, std::string interval, int id, std::string host, std::string arguments) {
     const static int DAY_MINUTES = 1440;
     int HH = boost::lexical_cast<int>(hh);
