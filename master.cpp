@@ -1,5 +1,5 @@
 #include <iostream>
-#include <unordered_map>
+#include <map>
 #include <thread>
 #include <atomic>
 #include <system_error>
@@ -85,8 +85,6 @@ public:
         int rc;
         uint16_t port_int;
 
-        if (sock < 0) throw PlayerException("init_socket socket " + host);
-
         if (boost::regex_match(port, boost::regex("\\d+"))) {
             port_int = boost::lexical_cast<uint16_t>(port);
             if (port_int < 1024 || port_int > 65535)
@@ -113,6 +111,7 @@ public:
         addr.sin_port = htons(port_int);
 
         sock = socket(addr_result->ai_family, addr_result->ai_socktype, addr_result->ai_protocol);
+        if (sock < 0) throw PlayerException("init_socket socket " + host);
 
         freeaddrinfo(addr_result);
     }
@@ -155,6 +154,10 @@ private:
 class TelnetSession {
 public:
     TelnetSession(int telnetsock) : sock(telnetsock) { }
+
+    ~TelnetSession() {
+        if (close(sock) < 0) perror("close");
+    }
 
     void send_back(std::string message) {
         ssize_t rc;
@@ -230,7 +233,21 @@ private:
     static const int BUFFER_SIZE = 2048;
     int sock;
     int next_id = 1;
-    std::unordered_map<int, std::shared_ptr<PlayerSession>> PlayerSessions;
+    std::map<int, std::shared_ptr<PlayerSession>> PlayerSessions;
+
+    int get_it() {
+        if (next_id <= 0) next_id = 1;
+        auto it = PlayerSessions.find(next_id);
+        if (it == PlayerSessions.end()) {
+            return next_id++;
+        }
+        while (it != PlayerSessions.end() && next_id > 0 && it->first == next_id) {
+            ++next_id;
+            ++it;
+        }
+        if (next_id <= 0) return get_it();
+        return next_id++;
+    }
 
     void parse_command(char *command) {
         std::string scommand(filter(command));
@@ -302,11 +319,12 @@ private:
     }
 
     void start_ssh_session(std::string host, std::string port, std::string arguments) {
-        std::shared_ptr<PlayerSession> player(new PlayerSession(next_id));
+        int id = get_it();
+        std::shared_ptr<PlayerSession> player(new PlayerSession(id));
         try {
             player->init_socket(host, port);
-            PlayerSessions.insert(std::make_pair(next_id, player));
-            std::thread(player_launch, this, next_id, host, arguments).detach();
+            PlayerSessions.insert(std::make_pair(id, player));
+            std::thread(player_launch, this, id, host, arguments).detach();
         }
         catch (const PlayerSession::PlayerException &ex) {
             fprintf(stderr, "%s\n", ex.what());
@@ -318,17 +336,17 @@ private:
             send_back("ERROR START " + host);
             return;
         }
-        send_back("OK " + std::to_string(next_id));
-        ++next_id;
+        send_back("OK " + std::to_string(id));
     }
 
     void start_delayed_ssh_session(std::string hh, std::string mm, std::string interval, std::string host,
                                    std::string port, std::string arguments) {
-        std::shared_ptr<DelayedPlayerSession> player(new DelayedPlayerSession(next_id));
+        int id = get_it();
+        std::shared_ptr<DelayedPlayerSession> player(new DelayedPlayerSession(id));
         try {
             player->init_socket(host, port);
-            PlayerSessions.insert(std::make_pair(next_id, player));
-            std::thread(delayed_player_launch, this, player, hh, mm, interval, next_id, host, arguments).detach();
+            PlayerSessions.insert(std::make_pair(id, player));
+            std::thread(delayed_player_launch, this, player, hh, mm, interval, id, host, arguments).detach();
         }
         catch (PlayerSession::PlayerException &ex) {
             fprintf(stderr, "%s\n", ex.what());
@@ -340,8 +358,7 @@ private:
             send_back("ERROR START " + host);
             return;
         }
-        send_back("OK " + std::to_string(next_id));
-        ++next_id;
+        send_back("OK " + std::to_string(id));
     }
 
     void send_command(std::string command, std::string id_str) {
