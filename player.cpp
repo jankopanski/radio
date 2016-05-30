@@ -4,9 +4,6 @@
 #include <poll.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <sys/select.h>
 #include <boost/regex.hpp>
 #include <boost/lexical_cast.hpp>
 #include "err.h"
@@ -69,7 +66,8 @@ public:
                     else state = meta;
                     break;
                 case meta:
-                    readlen = read(in, buffer + metaread, (size_t) (metalen - metaread)); // TODO metadane mogą się przepełnić
+                    readlen = read(in, buffer + metaread,
+                                   (size_t) std::min(metalen - metaread, BUFFER_SIZE));
                     if (readlen < 0) {
                         syserr("process read");
                     }
@@ -169,12 +167,12 @@ int initialize_radio_socket(const char *host, const char *r_port) {
 
     // Enter non-blocking mode
     arg = fcntl(r_sock, F_GETFL, NULL);
-    if(arg < 0) {
+    if (arg < 0) {
         syserr("Error fcntl(r_sock, F_GETFL)");
     }
     arg |= O_NONBLOCK;
     rc = fcntl(r_sock, F_SETFL, arg);
-    if(rc < 0) {
+    if (rc < 0) {
         syserr("Error fcntl(r_sock, F_SETFL)");
     }
 
@@ -192,7 +190,7 @@ int initialize_radio_socket(const char *host, const char *r_port) {
                 }
                 else if (rc > 0) {
                     lon = sizeof(int);
-                    rc = getsockopt(r_sock, SOL_SOCKET, SO_ERROR, (void*)(&valopt), &lon);
+                    rc = getsockopt(r_sock, SOL_SOCKET, SO_ERROR, (void *) (&valopt), &lon);
                     if (rc < 0) {
                         syserr("Error in getsockopt()");
                     }
@@ -213,11 +211,11 @@ int initialize_radio_socket(const char *host, const char *r_port) {
 
     // Back to blocking mode
     arg = fcntl(r_sock, F_GETFL, NULL);
-    if(arg < 0) {
+    if (arg < 0) {
         syserr("Error fcntl(r_sock, F_GETFL)");
     }
     arg &= (~O_NONBLOCK);
-    if( fcntl(r_sock, F_SETFL, arg) < 0) {
+    if (fcntl(r_sock, F_SETFL, arg) < 0) {
         syserr("Error fcntl(r_sock, F_SETFL)\n");
     }
 

@@ -399,7 +399,7 @@ void fetch_title(std::string id_str) {
         }
         else {
             char buffer[8192];
-            len = recv(it->second->sock, buffer, sizeof(buffer), 0);
+            len = recv(it->second->sock, buffer, sizeof(buffer), 0); // TODO nonblocking
             if (len <= 0) {
                 send_back("ERROR: getting title from player " + id_str);
             }
