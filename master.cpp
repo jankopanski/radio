@@ -354,11 +354,9 @@ void player_launch(TelnetSession *telnet_session, int id, std::string host, std:
             // TODO lepsza obróbka statusu
             fprintf(stderr, "%s\n", ret);
             //std::string error_message = "42"; // TODO zaślepka
-            cerr<<ret<<endl;
             boost::cmatch match;
             boost::regex_search(ret, match, boost::regex("(\\d+)"));
             std::string status(match[1]);
-            cerr<<status<<endl;
             telnet_session->finish(id, status);
         }
         else {
@@ -372,7 +370,6 @@ void delayed_player_launch(TelnetSession *telnet_session, std::string hh, std::s
     const static int DAY_MINUTES = 1440;
     int HH = boost::lexical_cast<int>(hh);
     int MM = boost::lexical_cast<int>(mm);
-    int M = boost::lexical_cast<int>(interval);
     time_t t = time(0);
     struct tm * now = localtime(&t);
     int delay = (HH - now->tm_hour) * 60 + MM - now->tm_min;
@@ -381,7 +378,28 @@ void delayed_player_launch(TelnetSession *telnet_session, std::string hh, std::s
     }
     std::this_thread::sleep_for(std::chrono::minutes(delay));
     //std::this_thread::sleep_until(std::chrono::system_clock::now() + std::chrono::minutes(delay));
-    
+    // TODO usunąć ClionProjects
+    std::string command("ssh " + host + " 'timeout " + interval +"m ./ClionProjects/radio/player " + arguments + "; echo $?'");
+    FILE *fpipe = (FILE *) popen(command.c_str(), "r");
+    if (fpipe == NULL) {
+        perror("Problems with pipe");
+    }
+    else {
+        char ret[256]; // TODO zwiększyć limt bufora i go sprawdzać
+        if (fgets(ret, sizeof(ret), fpipe)) {
+            // TODO lepsza obróbka statusu
+            fprintf(stderr, "%s\n", ret);
+            //std::string error_message = "42"; // TODO zaślepka
+            boost::cmatch match;
+            boost::regex_search(ret, match, boost::regex("(\\d+)"));
+            std::string status(match[1]);
+            telnet_session->finish(id, status);
+        }
+        else {
+            perror("reading status from player");
+        }
+        pclose(fpipe);
+    }
 }
 
 int parse_port_number(char *port) {
