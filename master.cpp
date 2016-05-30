@@ -369,21 +369,19 @@ void player_launch(TelnetSession *telnet_session, int id, std::string host, std:
 }
 
 void delayed_player_launch(TelnetSession *telnet_session, std::string hh, std::string mm, std::string interval, int id, std::string host, std::string arguments) {
-
-//    cerr<<"time to sleep"<<endl;
-//    struct tm tm;
-//    strptime(time_start.c_str(), "%H:%M", &tm);
-//    std::time_t t = mktime(&tm);  // t is now your desired time_t
-//
-//    using std::chrono::system_clock;
-//    std::this_thread::sleep_until(system_clock::from_time_t(t));
-//
-//    cerr << "wake up" <<endl;
-//    using std::chrono::system_clock;
-//    std::time_t tt = system_clock::to_time_t (system_clock::now());
-//    struct std::tm * ptm = std::localtime(&tt);
-//    ++ptm->tm_min; ptm->tm_sec=0;
-//    std::this_thread::sleep_until (system_clock::from_time_t (mktime(ptm)));
+    const static int DAY_MINUTES = 1440;
+    int HH = boost::lexical_cast<int>(hh);
+    int MM = boost::lexical_cast<int>(mm);
+    int M = boost::lexical_cast<int>(interval);
+    time_t t = time(0);
+    struct tm * now = localtime(&t);
+    int delay = (HH - now->tm_hour) * 60 + MM - now->tm_min;
+    if (delay < 0) {
+        delay = DAY_MINUTES - delay;
+    }
+    std::this_thread::sleep_for(std::chrono::minutes(delay));
+    //std::this_thread::sleep_until(std::chrono::system_clock::now() + std::chrono::minutes(delay));
+    
 }
 
 int parse_port_number(char *port) {
