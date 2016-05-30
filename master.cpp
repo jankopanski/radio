@@ -301,7 +301,7 @@ void player_launch(TelnetSession *telnet_session, int id, std::string host, std:
         perror("Problems with pipe");
     }
     else {
-        char ret[256];
+        char ret[256]; // TODO zwiększyć limt bufora i go sprawdzać
         if (fgets(ret, sizeof(ret), fpipe)) {
             // TODO lepsza obróbka statusu
             fprintf(stderr, "%s\n", ret);

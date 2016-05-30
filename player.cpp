@@ -282,13 +282,6 @@ void process_command(int sock, int out, Radio &radio) {
     struct sockaddr_in addr;
     socklen_t addrlen = sizeof(struct sockaddr_in);
     recvlen = recvfrom(sock, buffer, 6, 0, (struct sockaddr *) &addr, &addrlen);
-    cerr<<buffer<<endl;
-    //assert(strcmp(buffer, "QUIT") == 0);
-    assert(buffer[0] == 'Q');
-    assert(buffer[1] == 'U');
-    assert(buffer[2] == 'I');
-    assert(buffer[3] == 'T');
-    assert(buffer[4] == '\0');
     if (recvlen < 0) {
         syserr("process_command recvfrom");
     }
