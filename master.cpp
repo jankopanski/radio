@@ -230,26 +230,24 @@ private:
     std::unordered_map<int, std::shared_ptr<PlayerSession>> PlayerSessions;
 
     void parse_command(char *command) {
-        // TODO filtracja sekwencji znakowych
-        // TODO zmienic + na konkretne liczby
+        std::string scommand(filter(command));
         // START komputer host path r-port file m-port md
-        static const boost::regex start_regex("START +(\\S+) +(\\S+ +\\S+ +\\d+ +(\\S+) +(\\d+) +(?:yes|no))\\s*");
+        static const boost::regex start_regex("START +(\\S+) +(\\S+ +\\S+ +\\d{1,5} +(\\S+) +(\\d{1,5}) +(?:yes|no))\\s*");
         // AT HH.MM M komputer host path r-port file m-port md
         static const boost::regex at_regex(
-                "AT +(\\d{2})\\.(\\d{2}) +(\\d) +(\\S+) +(\\S+ +\\S+ +\\d+ +(\\S+) +(\\d+) +(?:yes|no))\\s*");
+                "AT +(\\d{2})\\.(\\d{2}) +(\\d) +(\\S+) +(\\S+ +\\S+ +\\d{1,5} +(\\S+) +(\\d{1,5}) +(?:yes|no))\\s*");
         // PAUSE | PLAY | QUIT  ID
         static const boost::regex command_regex("(PAUSE|PLAY|QUIT) +(\\d+)\\s*");
         // TITLE ID
         static const boost::regex title_regex("TITLE +(\\d+)\\s*");
-        std::cerr<<command<<' '<<sizeof(command)<<std::endl;
-        boost::cmatch match;
-        if (boost::regex_match(command, match, command_regex)) {
+        boost::smatch match;
+        if (boost::regex_match(scommand, match, command_regex)) {
             send_command(match[1], match[2]);
         }
-        else if (boost::regex_match(command, match, title_regex)) {
+        else if (boost::regex_match(scommand, match, title_regex)) {
             fetch_title(match[1]);
         }
-        else if (boost::regex_match(command, match, start_regex)) {
+        else if (boost::regex_match(scommand, match, start_regex)) {
             if (match[3] == "-") {
                 fprintf(stderr, "Invalid command: %s\n", command);
                 send_back("ERROR: Invalid command");
@@ -258,7 +256,7 @@ private:
                 start_ssh_session(match[1], match[4], match[2]);
             }
         }
-        else if (boost::regex_match(command, match, at_regex)) {
+        else if (boost::regex_match(scommand, match, at_regex)) {
             if (match[6] == "-") {
                 fprintf(stderr, "Invalid command: %s\n", command);
                 send_back("ERROR: Invalid command");
@@ -268,7 +266,7 @@ private:
             }
         }
         else {
-            fprintf(stderr, "Invalid command: %s\n", command);
+            fprintf(stderr, "Invalid command: %s\n", scommand.c_str());
             send_back("ERROR: Invalid command");
         }
     }
@@ -276,7 +274,7 @@ private:
     std::string filter(char *command) {
         std::string scommand;
         int state = 0;
-        for (int i = 0, n = sizeof(command); i < n; ++i) {
+        for (size_t i = 0, n = strlen(command); i < n; ++i) {
             switch(state) {
                 case 0:
                     if (command[i] == 255) state = 1;
