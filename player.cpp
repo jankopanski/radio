@@ -64,14 +64,16 @@ public:
                     }
                     metalen = static_cast<int>(buffer[0]) * 16;
                     if (metalen == 0) state = audio;
-                    else if (metalen > BUFFER_SIZE) {
-                        fprintf(stderr, "Metalen data exceedes buffer\n");
-                        state = audio;
+                    else {
+                        state = meta;
+                        if (metalen > BUFFER_SIZE) {
+                            fprintf(stderr, "metalen exceedes buffer");
+                        }
                     }
-                    else state = meta;
                     break;
                 case meta:
-                    readlen = read(in, buffer + metaread, (size_t) (metalen - metaread));
+                    if (metalen > BUFFER_SIZE) readlen = read(in, buffer, (size_t) std::min(metalen - metaread, BUFFER_SIZE));
+                    else readlen = read(in, buffer + metaread, (size_t) std::min(metalen - metaread, BUFFER_SIZE));
                     if (readlen < 0) {
                         syserr("process read");
                     }
@@ -79,13 +81,15 @@ public:
                         quit(out);
                     }
                     metaread += readlen;
-                    if (metaread == metalen) {
-                        buffer[metalen] = 0;
-                        boost::cmatch what;
-                        boost::regex_search(buffer, what, title_regex);
-                        title_ = what[1];
+                    if (metaread >= metalen) {
                         metaread = 0;
                         state = audio;
+                        if (metalen <= BUFFER_SIZE) {
+                            buffer[metalen] = 0;
+                            boost::cmatch what;
+                            boost::regex_search(buffer, what, title_regex);
+                            title_ = what[1];
+                        }
                     }
                     break;
                 default:
