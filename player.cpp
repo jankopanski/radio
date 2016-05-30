@@ -31,23 +31,13 @@ void quit(int fd) {
 class Radio {
 public:
     Radio(int r_sock, int outfd, int metaint, bool metadata) : in(r_sock), out(outfd), audiolen(metaint),
-                                                               metadata(metadata) {
-        buffer_size = metadata ? std::min(std::max(audiolen, 4080) + 1, MAX_BUFFER_SIZE) : MAX_BUFFER_SIZE; // TODO statyczny buffer
-        buffer = (char *) malloc((size_t) buffer_size);
-        if (buffer == NULL) {
-            syserr("Radio malloc");
-        }
-    }
-
-    ~Radio() {
-        free(buffer);
-    }
+                                                               metadata(metadata) { }
 
     void process() {
         if (metadata) {
             switch (state) {
                 case audio:
-                    readlen = read(in, buffer, (size_t) std::min(audiolen - audioread, buffer_size));
+                    readlen = read(in, buffer, (size_t) std::min(audiolen - audioread, BUFFER_SIZE));
                     if (readlen < 0) {
                         syserr("process read");
                     }
@@ -101,7 +91,7 @@ public:
             }
         }
         else {
-            readlen = read(in, buffer, (size_t) buffer_size);
+            readlen = read(in, buffer, (size_t) BUFFER_SIZE);
             if (readlen < 0) {
                 syserr("process read");
             }
@@ -139,15 +129,14 @@ private:
     const int in;
     const int out;
     const int audiolen;
-    const int MAX_BUFFER_SIZE = 8192;
+    const static int BUFFER_SIZE = 8192;
     const bool metadata;
     int metalen = 0;
     int audioread = 0;
     int metaread = 0;
-    int buffer_size;
     ssize_t readlen;
     ssize_t writelen;
-    char *buffer;
+    char buffer[BUFFER_SIZE + 1];
     std::string title_ = "";
     const boost::regex title_regex{"StreamTitle='([^;]*)';"};
 };
