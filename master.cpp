@@ -452,10 +452,7 @@ void telnet_listen(int telnet_sock) {
 }
 
 void player_launch(TelnetSession *telnet_session, int id, std::string host, std::string arguments) {
-    //std::string command("ssh " + host + " 'player " + arguments + "; echo $?'");
     std::string command("ssh " + host + " \"bash -cl 'player " + arguments + "; echo $?'\"");
-    //std::string command("ssh ");
-    //command += host;
     FILE *fpipe = (FILE *) popen(command.c_str(), "r");
     if (fpipe == NULL) {
         perror("Problems with pipe");
@@ -490,7 +487,7 @@ void delayed_player_launch(TelnetSession *telnet_session, std::shared_ptr<Delaye
         }
         std::this_thread::sleep_for(std::chrono::minutes(delay));
         std::string command(
-                "ssh " + host + " 'timeout " + interval + "m player " + arguments + "; echo $?'");
+                "ssh " + host + " \"bash -cl 'timeout " + interval + "m player " + arguments + "; echo $?'\"");
         player_session->activate();
         FILE *fpipe = (FILE *) popen(command.c_str(), "r");
         if (fpipe == NULL) {
