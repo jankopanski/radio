@@ -452,7 +452,10 @@ void telnet_listen(int telnet_sock) {
 }
 
 void player_launch(TelnetSession *telnet_session, int id, std::string host, std::string arguments) {
-    std::string command("ssh " + host + " 'player " + arguments + "; echo $?'");
+    //std::string command("ssh " + host + " 'player " + arguments + "; echo $?'");
+    std::string command("ssh " + host + " \"bash -cl 'player " + arguments + "; echo $?'\"");
+    //std::string command("ssh ");
+    //command += host;
     FILE *fpipe = (FILE *) popen(command.c_str(), "r");
     if (fpipe == NULL) {
         perror("Problems with pipe");
