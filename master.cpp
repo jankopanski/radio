@@ -9,7 +9,7 @@
 #include <boost/lexical_cast.hpp>
 #include "err.h"
 
-// START jk359785@students.mimuw.edu.pl ant-waw-01.cdn.eurozet.pl / 8602 test5.mp3 50000 yes
+// START mail@mail.com ant-waw-01.cdn.eurozet.pl / 8602 test5.mp3 50000 yes
 // START localhost ant-waw-01.cdn.eurozet.pl / 8602 test5.mp3 50000 yes
 // rlwrap telnet localhost 37479
 
